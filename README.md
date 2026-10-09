@@ -77,6 +77,56 @@ Every logbook screen is an A4 sheet that matches the printed page.
 The same Sheet components are rendered on screen and in the PDF route (`/print/[groupId]`, F16);
 there is no separate PDF template.
 
+## Implemented features
+
+### F2 — Authentication
+
+| Piece | Location |
+|---|---|
+| NextAuth options (credentials, JWT sessions) | `lib/auth.ts` |
+| Sign-up / verify / login / reset service | `lib/services/auth.ts` |
+| Route protection + role helpers | `lib/permissions.ts`, `lib/roles.ts`, `middleware.ts` |
+| Rate limiting | `lib/rate-limit.ts` |
+
+Students self-register at `/signup`; the role is forced to `STUDENT` server-side. Guides and the HOD
+are created by the HOD. Unverified accounts cannot log in.
+
+### F3 — HOD administration
+
+| Piece | Location |
+|---|---|
+| Service (`createGuide`, `updateGuide`, `setUserActive`, `approveGroup`, `rejectGroup`, `assignGuide`) | `lib/services/admin.ts` |
+| Server actions (all HOD-gated) | `lib/actions/admin.ts` |
+| Pages | `app/hod/` (`users`, `groups`, `assignments`, `audit`) |
+
+The HOD creates guide accounts, approves/rejects submitted groups, assigns exactly one guide per
+group, and reviews the audit log. Approving a group and assigning its guide happen together, so the
+group only becomes `ACTIVE` when both are done.
+
+### F4 — Student groups (create, invite, submit)
+
+Route: `/student/group`. A student belongs to **at most one** group, and a group has **at most 4**
+members. The creator invites classmates by **email or roll number**, anyone can **join by the shared
+group code**, and only the creator can **submit** the group (`DRAFT → SUBMITTED`) for HOD approval.
+
+| Piece | Location |
+|---|---|
+| Service (`createGroup`, `inviteMember`, `acceptInvite`, `declineInvite`, `joinByCode`, `removeMember`, `submitGroup`) | `lib/services/group.ts` |
+| Server actions (all student-gated) | `lib/actions/group.ts` |
+| Zod schemas | `lib/validation/group.ts` |
+| Page + client UI | `app/student/group/page.tsx`, `components/student/group-onboarding.tsx` |
+| Student shell + dashboard | `app/student/layout.tsx`, `app/student/page.tsx`, `components/app/student-nav.tsx` |
+
+Server-side invariants (never only in the UI): a student cannot join a second group, the 5th member
+is rejected on every path (invite and code), and only the creator can submit. Every create, invite,
+accept/decline, join, removal and submit writes an `AuditLog` row.
+
+**Demo flow:** reset the database (`npm run db:seed` on a fresh DB) so that `G1` is `SUBMITTED`
+(TE2101–TE2104) and `G2` is a `DRAFT` containing only its creator **TE2105**; TE2106–TE2108 are free.
+Log in as `te2105` → `/student/group`, invite `te2106`–`te2108`, have each accept (or share the group
+code), then submit. Log in as `hod@apcoer.edu.in` → `/hod/groups` to approve and assign a guide; the
+creator then sees the group as `ACTIVE` with the guide's name.
+
 ### Static assets to replace with the real files
 
 | Path | Purpose |

@@ -71,9 +71,10 @@ async function main() {
   }
 
   // ------------------------------------------------------------------ groups
-  // Two groups of four, already SUBMITTED to the HOD so F3 (approve, reject,
-  // assign one guide) has real data to work with. Created only when no groups
-  // exist, so re-running the seed never duplicates them.
+  // G1 is complete and SUBMITTED so F3 (approve, reject, assign) has data.
+  // G2 is a DRAFT with only its creator, leaving three students free so F4
+  // (create, invite, submit) can be exercised with seeded logins.
+  // Created only when no groups exist, so re-running the seed never duplicates.
   if ((await prisma.group.count()) === 0) {
     const students = await prisma.user.findMany({
       where: { role: "STUDENT" },
@@ -85,6 +86,7 @@ async function main() {
         groupNo: "G1",
         projectTitle: "Smart Attendance System using Face Recognition",
         area: "Artificial Intelligence",
+        status: "SUBMITTED",
         from: 0,
         to: 4,
       },
@@ -92,8 +94,9 @@ async function main() {
         groupNo: "G2",
         projectTitle: "Campus Placement and Training Portal",
         area: "Web Development",
+        status: "DRAFT",
         from: 4,
-        to: 8,
+        to: 5,
       },
     ];
 
@@ -109,7 +112,7 @@ async function main() {
           department: "Computer Engineering",
           projectTitle: spec.projectTitle,
           area: spec.area,
-          status: "SUBMITTED",
+          status: spec.status,
           creatorId: creator.id,
           members: {
             create: memberUsers.map((member, index) => ({

@@ -107,6 +107,25 @@ export function isGroupActive(group: { status: string; guideId: string | null })
   return group.status === "ACTIVE" && Boolean(group.guideId);
 }
 
+/** Student group-onboarding helpers (F4). */
+export function canCreateGroup(user: CurrentUser): boolean {
+  return user.role === "STUDENT";
+}
+
+/** Only the group creator manages members and submits it. */
+export function canManageGroup(user: CurrentUser, group: { creatorId: string }): boolean {
+  return user.role === "STUDENT" && group.creatorId === user.id;
+}
+
+export function canSubmitGroup(user: CurrentUser, group: { creatorId: string; status: string }): boolean {
+  return canManageGroup(user, group) && group.status === "DRAFT";
+}
+
+/** Invites can only be sent/removed while the group is still a draft. */
+export function canEditInvites(user: CurrentUser, group: { creatorId: string; status: string }): boolean {
+  return canSubmitGroup(user, group);
+}
+
 /**
  * PDF gate (master prompt rule 5):
  *   canGeneratePdf = pdfPermission === true AND allSectionsComplete === true
