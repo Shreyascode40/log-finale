@@ -81,5 +81,9 @@ export default async function StudentGroupPage() {
     expiresAt: invite.expiresAt.toISOString(),
   }));
 
-  return <GroupOnboarding group={group} receivedInvites={receivedInvites} />;
+  return (
+    <div className="mx-auto max-w-5xl px-4 py-6">
+      <GroupOnboarding group={group} receivedInvites={receivedInvites} />
+    </div>
+  );
 }

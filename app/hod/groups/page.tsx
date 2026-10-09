@@ -30,6 +30,7 @@ export default async function HodGroupsPage() {
     area: group.area,
     status: group.status,
     rejectReason: group.rejectReason,
+    isSponsored: group.isSponsored,
     guideName: group.guide?.name ?? null,
     creatorName: group.creator.name,
     members: group.members,

@@ -31,7 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { approveGroupAction, rejectGroupAction } from "@/lib/actions/admin";
+import { approveGroupAction, rejectGroupAction, setGroupSponsoredAction } from "@/lib/actions/admin";
 
 export type GroupRow = {
   id: string;
@@ -40,6 +40,7 @@ export type GroupRow = {
   area: string | null;
   status: string;
   rejectReason: string | null;
+  isSponsored: boolean;
   guideName: string | null;
   creatorName: string;
   members: { id: string; name: string; rollNo: string | null }[];
@@ -100,6 +101,16 @@ export function GroupsManager({
     }
     setRejecting(null);
     setReason("");
+    refresh();
+  }
+
+  async function onToggleSponsored(group: GroupRow) {
+    setError(null);
+    const result = await setGroupSponsoredAction({ groupId: group.id, isSponsored: !group.isSponsored });
+    if (!result.success) {
+      setError(result.error);
+      return;
+    }
     refresh();
   }
 
@@ -165,6 +176,11 @@ export function GroupsManager({
                     <Badge variant={STATUS_VARIANT[group.status] ?? "secondary"}>
                       {group.status.replaceAll("_", " ")}
                     </Badge>
+                    {group.isSponsored ? (
+                      <div className="mt-1">
+                        <Badge variant="outline">Sponsored</Badge>
+                      </div>
+                    ) : null}
                     {group.rejectReason ? (
                       <div className="mt-1 max-w-[14rem] text-xs text-destructive">
                         {group.rejectReason}
@@ -172,6 +188,13 @@ export function GroupsManager({
                     ) : null}
                   </TableCell>
                   <TableCell className="space-x-2 text-right">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void onToggleSponsored(group)}
+                    >
+                      {group.isSponsored ? "Unmark sponsored" : "Mark sponsored"}
+                    </Button>
                     {group.status === "SUBMITTED" ? (
                       <>
                         <Button

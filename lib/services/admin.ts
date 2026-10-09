@@ -6,10 +6,14 @@ import {
   approveGroupSchema,
   assignGuideSchema,
   createGuideSchema,
+  pdfPermissionSchema,
   rejectGroupSchema,
   setUserActiveSchema,
   updateGuideSchema,
 } from "@/lib/validation/admin";
+import { sponsoredFlagSchema } from "@/lib/validation/sponsored";
+import { getGroupCompletion } from "@/lib/completion/index";
+import { onGuideAssigned, onPdfPermission } from "@/lib/services/notifications";
 import type { CurrentUser } from "@/lib/permissions";
 
 /**
@@ -259,4 +263,110 @@ export async function assignGuide(actor: Actor, input: unknown): Promise<void> {
       tx,
     );
   });
+  await onGuideAssigned(groupId, guide.name);
+}
+
+/** Flags or unflags a group as a sponsored project (F14 unlocks its sheets). */
+export async function setGroupSponsored(actor: Actor, input: unknown): Promise<void> {
+  assertHod(actor);
+
+  const parsed = sponsoredFlagSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new AppError("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Invalid input");
+  }
+  const { groupId, isSponsored } = parsed.data;
+
+  const group = await prisma.group.findUnique({ where: { id: groupId } });
+  if (!group) throw new AppError("GROUP_NOT_FOUND", "Group not found");
+
+  await prisma.$transaction(async (tx) => {
+    await tx.group.update({ where: { id: groupId }, data: { isSponsored } });
+    await logAction(
+      {
+        userId: actor.id,
+        action: "GROUP_SPONSORED",
+        entity: "Group",
+        entityId: groupId,
+        before: { isSponsored: group.isSponsored },
+        after: { isSponsored },
+      },
+      tx,
+    );
+  });
+}
+
+/**
+ * Toggles final-PDF permission for a group (F15). Allowing requires every
+ * mandatory section complete (the missing list is returned otherwise) and
+ * moves the group to PDF_ALLOWED; revoking clears the flag and returns the
+ * group to READY_FOR_PDF (still complete) or ACTIVE.
+ */
+export async function setPdfPermission(actor: Actor, input: unknown): Promise<void> {
+  assertHod(actor);
+
+  const parsed = pdfPermissionSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new AppError("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Invalid input");
+  }
+  const { groupId, allowed } = parsed.data;
+
+  const group = await prisma.group.findUnique({ where: { id: groupId } });
+  if (!group) throw new AppError("GROUP_NOT_FOUND", "Group not found");
+  if (group.status === "PDF_GENERATED") {
+    throw new AppError("LOCKED", "The final PDF is already generated for this group");
+  }
+
+  const completion = await getGroupCompletion(groupId);
+  const now = new Date();
+
+  if (allowed) {
+    if (!completion.complete) {
+      throw new AppError(
+        "INCOMPLETE",
+        `Cannot allow PDF generation: ${completion.missing.join(", ")} still incomplete`,
+      );
+    }
+    await prisma.$transaction(async (tx) => {
+      await tx.group.update({
+        where: { id: groupId },
+        data: { pdfPermission: true, pdfPermissionBy: actor.id, pdfPermissionAt: now, status: "PDF_ALLOWED" },
+      });
+      await logAction(
+        {
+          userId: actor.id,
+          action: "GROUP_PDF_ALLOW",
+          entity: "Group",
+          entityId: groupId,
+          before: { pdfPermission: group.pdfPermission, status: group.status },
+          after: { pdfPermission: true, status: "PDF_ALLOWED" },
+        },
+        tx,
+      );
+    });
+    await onPdfPermission(groupId, true);
+    return;
+  }
+
+  const fallback = completion.complete ? "READY_FOR_PDF" : "ACTIVE";
+  const nextStatus = ["PDF_ALLOWED", "READY_FOR_PDF", "ACTIVE"].includes(group.status)
+    ? fallback
+    : group.status;
+  await prisma.$transaction(async (tx) => {
+    await tx.group.update({
+      where: { id: groupId },
+      data: { pdfPermission: false, pdfPermissionBy: null, pdfPermissionAt: null, status: nextStatus },
+    });
+    await logAction(
+      {
+        userId: actor.id,
+        action: "GROUP_PDF_REVOKE",
+        entity: "Group",
+        entityId: groupId,
+        before: { pdfPermission: group.pdfPermission, status: group.status },
+        after: { pdfPermission: false, status: nextStatus },
+      },
+      tx,
+    );
+  });
+  await onPdfPermission(groupId, false);
 }

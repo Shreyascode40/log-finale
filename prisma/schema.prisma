@@ -349,6 +349,8 @@ model ReviewScore {
   remark          String?
   // grade out of 10 (free text allowed by guide)
   grade           String?
+  // per-row date for the Term-II coding / validation / report sheets (F13)
+  date            String?
   guideSignedAt   DateTime?
   guideSignedById String?
 

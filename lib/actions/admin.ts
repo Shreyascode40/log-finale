@@ -7,6 +7,8 @@ import {
   assignGuide,
   createGuide,
   rejectGroup,
+  setGroupSponsored,
+  setPdfPermission,
   setUserActive,
   updateGuide,
 } from "@/lib/services/admin";
@@ -75,6 +77,20 @@ export async function rejectGroupAction(input: unknown) {
 export async function assignGuideAction(input: unknown) {
   return run(async (actor) => {
     await assignGuide(actor, input);
+    return undefined;
+  });
+}
+
+export async function setGroupSponsoredAction(input: unknown) {
+  return run(async (actor) => {
+    await setGroupSponsored(actor, input);
+    return undefined;
+  });
+}
+
+export async function setPdfPermissionAction(input: unknown) {
+  return run(async (actor) => {
+    await setPdfPermission(actor, input);
     return undefined;
   });
 }

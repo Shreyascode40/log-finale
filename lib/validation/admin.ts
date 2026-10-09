@@ -50,3 +50,8 @@ export const assignGuideSchema = z.object({
   groupId: z.string().min(1),
   guideId: z.string().min(1, "Select a guide"),
 });
+
+export const pdfPermissionSchema = z.object({
+  groupId: z.string().min(1),
+  allowed: z.boolean(),
+});

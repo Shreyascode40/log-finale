@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "predev": "node scripts/check-dev-port.js",
+    "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -27,7 +28,9 @@
     "lucide-react": "^1.54.0",
     "next": "^14.2.35",
     "next-auth": "^4.24.15",
+    "nodemailer": "^7.0.13",
     "prisma": "^5.22.0",
+    "puppeteer-core": "^25.13.0",
     "react": "^18",
     "react-dom": "^18",
     "react-hook-form": "^7.89.0",
@@ -38,6 +41,7 @@
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "eslint": "^8",

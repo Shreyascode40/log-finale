@@ -8,7 +8,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
     <div className="min-h-screen bg-neutral-100">
       <AppHeader name={user.name} role="Student" homeHref="/student" />
       <StudentNav />
-      <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
+      {children}
     </div>
   );
 }

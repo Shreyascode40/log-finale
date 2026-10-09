@@ -157,6 +157,7 @@ describe("marks permissions are group-scoped", () => {
     expect(canGeneratePdf(hod, group, true)).toBe(false);
     expect(canGeneratePdf(member, { ...group, pdfPermission: true }, false)).toBe(false);
     expect(canGeneratePdf(member, { ...group, pdfPermission: true }, true)).toBe(true);
+    expect(canGeneratePdf(assignedGuide, { ...group, pdfPermission: true }, true)).toBe(true);
     expect(canGeneratePdf(otherGuide, { ...group, pdfPermission: true }, true)).toBe(false);
   });
 });

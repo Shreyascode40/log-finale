@@ -205,6 +205,49 @@
   background: #d9d9d9;
 }
 
+/* Cover page — the ONLY sheet allowed to use colour (SPEC.md E5.1). */
+.paper-cover-banner {
+  background: linear-gradient(90deg, #d9e6dd 0%, #eef4ef 55%, #d9e6dd 100%);
+  border: 1px solid #9aa89e;
+  border-radius: 6px;
+  padding: 10px;
+  text-align: center;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.paper-cover-box {
+  background: #e8f3f1;
+  border: 1px solid #2f8f86;
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+
+.paper-cover-group {
+  background: #e6ece3;
+  border: 1px solid #7d8f78;
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+/* The "Affix your photo here" square on the Group Information sheets. */
+.paper-photo-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 150px;
+  background: linear-gradient(135deg, #f2f2f2 0%, #d9d9d9 100%);
+  border: 1px dashed #808080;
+  color: #555;
+  font-size: 11px;
+  text-align: center;
+  padding: 4px;
+}
+
 /* E-signature rendering: name + timestamp in a small italic serif. */
 .paper-sign {
   font-family: var(--font-paper-serif);

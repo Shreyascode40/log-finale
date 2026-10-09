@@ -93,6 +93,11 @@ export function canApproveTopic(user: CurrentUser): boolean {
   return user.role === "HOD";
 }
 
+/** The guide (reviewer) and the HOD may edit the global project schedule (F7). */
+export function canEditSchedule(user: { role: Role }): boolean {
+  return user.role === "HOD" || user.role === "GUIDE";
+}
+
 /** HOD-only administration helpers (F3). */
 export function canManageUsers(user: CurrentUser): boolean {
   return user.role === "HOD";
@@ -127,16 +132,18 @@ export function canEditInvites(user: CurrentUser, group: { creatorId: string; st
 }
 
 /**
- * PDF gate (master prompt rule 5):
+ * PDF gate (master prompt rule 5, SPEC.md A2):
  *   canGeneratePdf = pdfPermission === true AND allSectionsComplete === true
- * A student of the group or the HOD may generate it — but only when the gate is
- * open. The server re-checks this at generation time (F16).
+ * The student of the group, the assigned guide or the HOD may generate it —
+ * but only when the gate is open. The server re-checks this at generation
+ * time (F16).
  */
 export function canGeneratePdf(
   user: CurrentUser,
   group: GroupLike,
   allSectionsComplete: boolean,
 ): boolean {
-  const permitted = user.role === "HOD" || isMemberOf(user, group);
+  const permitted =
+    user.role === "HOD" || isMemberOf(user, group) || canEnterMarks(user, group);
   return permitted && group.pdfPermission === true && allSectionsComplete === true;
 }

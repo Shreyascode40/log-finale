@@ -8,6 +8,15 @@ const LINKS = [
   { href: "/hod/users", label: "Users" },
   { href: "/hod/groups", label: "Groups" },
   { href: "/hod/assignments", label: "Assignments" },
+  { href: "/hod/schedule", label: "Schedule" },
+  { href: "/hod/topics", label: "Topics" },
+  { href: "/hod/activity", label: "Activity" },
+  { href: "/hod/reviews", label: "Reviews" },
+  { href: "/hod/mock", label: "Mock eval" },
+  { href: "/hod/final", label: "Final eval" },
+  { href: "/hod/examiner", label: "Examiner" },
+  { href: "/hod/records", label: "Records" },
+  { href: "/hod/sponsored", label: "Sponsored" },
   { href: "/hod/audit", label: "Audit log" },
 ];
 

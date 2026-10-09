@@ -3,12 +3,16 @@
  *
  * Feature seeds are added by the feature that needs them:
  *   F3 -> demo group statuses, F7 -> schedule, F9 -> activity templates,
- *   F10/F13 -> review templates + questions, F11 -> examiner questions.
+ *   F10/F13 -> review templates + questions.
+ * (Examiner questions live in lib/constants.ts alongside the 13 rules.)
  *
  * Run with: npm run db:seed
  */
 import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../lib/password";
+import { SCHEDULE_SEED } from "./seed-data/schedule";
+import { ACTIVITY_SEED } from "./seed-data/activity";
+import { REVIEW_SEED } from "./seed-data/reviews";
 
 const prisma = new PrismaClient();
 
@@ -127,6 +131,53 @@ async function main() {
             })),
           },
         },
+      });
+    }
+  }
+
+  // ------------------------------------------------------------------ schedule
+  // F7: the two B5 schedule tables. Upsert so re-running the seed never wipes a
+  // date the HOD has already set — only the description is refreshed.
+  for (const row of SCHEDULE_SEED) {
+    await prisma.scheduleItem.upsert({
+      where: { term_sortOrder: { term: row.term, sortOrder: row.sortOrder } },
+      update: { description: row.description },
+      create: { term: row.term, sortOrder: row.sortOrder, description: row.description },
+    });
+  }
+
+  // ------------------------------------------------------------------ activity
+  // F9: the B7 planned-activity templates. Upsert so re-running the seed never
+  // duplicates rows — only the text is refreshed.
+  for (const row of ACTIVITY_SEED) {
+    await prisma.activityTemplate.upsert({
+      where: { month_sortOrder: { month: row.month, sortOrder: row.sortOrder } },
+      update: { text: row.text },
+      create: { month: row.month, sortOrder: row.sortOrder, text: row.text },
+    });
+  }
+
+  // ------------------------------------------------------------------ reviews
+  // F10: Term-I templates and their B8 question sets. Upserts refresh titles
+  // and wording without touching any group's filled marks.
+  for (const template of REVIEW_SEED) {
+    const saved = await prisma.reviewTemplate.upsert({
+      where: { reviewType: template.reviewType },
+      update: { title: template.title, term: template.term, order: template.order, hasDateColumn: template.hasDateColumn },
+      create: {
+        term: template.term,
+        reviewType: template.reviewType,
+        title: template.title,
+        order: template.order,
+        hasDateColumn: template.hasDateColumn,
+      },
+    });
+    for (let index = 0; index < template.questions.length; index += 1) {
+      const text = template.questions[index]!;
+      await prisma.reviewQuestion.upsert({
+        where: { templateId_questionNo: { templateId: saved.id, questionNo: index + 1 } },
+        update: { text },
+        create: { templateId: saved.id, questionNo: index + 1, text },
       });
     }
   }

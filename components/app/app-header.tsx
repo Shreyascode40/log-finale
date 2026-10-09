@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import { NotificationsBell } from "@/components/app/notifications-bell";
 
 export function AppHeader({
   name,
@@ -29,6 +30,7 @@ export function AppHeader({
             <div className="font-medium">{name}</div>
             <div className="text-muted-foreground">{role}</div>
           </div>
+          <NotificationsBell />
           <Button variant="outline" size="sm" onClick={() => signOut({ callbackUrl: "/login" })}>
             Sign out
           </Button>
