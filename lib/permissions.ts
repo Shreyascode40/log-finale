@@ -93,6 +93,20 @@ export function canApproveTopic(user: CurrentUser): boolean {
   return user.role === "HOD";
 }
 
+/** HOD-only administration helpers (F3). */
+export function canManageUsers(user: CurrentUser): boolean {
+  return user.role === "HOD";
+}
+
+export function canApproveGroup(user: CurrentUser): boolean {
+  return user.role === "HOD";
+}
+
+/** A group is active when the HOD has approved it AND a guide is assigned. */
+export function isGroupActive(group: { status: string; guideId: string | null }): boolean {
+  return group.status === "ACTIVE" && Boolean(group.guideId);
+}
+
 /**
  * PDF gate (master prompt rule 5):
  *   canGeneratePdf = pdfPermission === true AND allSectionsComplete === true

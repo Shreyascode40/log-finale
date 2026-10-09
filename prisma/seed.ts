@@ -70,6 +70,64 @@ async function main() {
     });
   }
 
+  // ------------------------------------------------------------------ groups
+  // Two groups of four, already SUBMITTED to the HOD so F3 (approve, reject,
+  // assign one guide) has real data to work with. Created only when no groups
+  // exist, so re-running the seed never duplicates them.
+  if ((await prisma.group.count()) === 0) {
+    const students = await prisma.user.findMany({
+      where: { role: "STUDENT" },
+      orderBy: { rollNo: "asc" },
+    });
+
+    const DEMO_GROUPS = [
+      {
+        groupNo: "G1",
+        projectTitle: "Smart Attendance System using Face Recognition",
+        area: "Artificial Intelligence",
+        from: 0,
+        to: 4,
+      },
+      {
+        groupNo: "G2",
+        projectTitle: "Campus Placement and Training Portal",
+        area: "Web Development",
+        from: 4,
+        to: 8,
+      },
+    ];
+
+    for (const spec of DEMO_GROUPS) {
+      const memberUsers = students.slice(spec.from, spec.to);
+      const creator = memberUsers[0];
+      if (!creator) continue;
+
+      await prisma.group.create({
+        data: {
+          groupNo: spec.groupNo,
+          academicYear: "2025-26",
+          department: "Computer Engineering",
+          projectTitle: spec.projectTitle,
+          area: spec.area,
+          status: "SUBMITTED",
+          creatorId: creator.id,
+          members: {
+            create: memberUsers.map((member, index) => ({
+              userId: member.id,
+              name: member.name,
+              rollNo: member.rollNo,
+              email: member.email,
+              mobile: member.mobile,
+              teResult: "Passed",
+              examSeatNo: `S${member.rollNo ?? index}`,
+              memberType: index === 0 ? "creator" : "member",
+            })),
+          },
+        },
+      });
+    }
+  }
+
   console.log(`Seeded ${STAFF.length} staff and ${STUDENTS.length} students.`);
   console.log(`All demo accounts use the password: ${DEMO_PASSWORD}`);
   console.log(`HOD: ${STAFF[0]!.email} | Guides: ${STAFF.slice(1).map((s) => s.email).join(", ")}`);
