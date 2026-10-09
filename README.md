@@ -41,6 +41,23 @@ npm run dev                   # http://localhost:3000
 | `npm run db:migrate` | `prisma migrate dev` |
 | `npm run db:seed` | `tsx prisma/seed.ts` |
 
+## Demo accounts (after `npm run db:seed`)
+
+All accounts use the password **`Password@123`**.
+
+| Role | Email |
+|---|---|
+| HOD | `hod@apcoer.edu.in` |
+| Guide / Reviewer | `guide1@apcoer.edu.in`, `guide2@apcoer.edu.in`, `guide3@apcoer.edu.in` |
+| Student | `te2101@apcoer.edu.in` … `te2108@apcoer.edu.in` |
+
+Students self-register at `/signup` (role is always STUDENT, set by the server). Guides and the HOD
+are created by the HOD — they are never self-registered. In development (`EMAIL_PROVIDER=console`)
+verification and reset links are printed to the server log **and** shown on the sign-up / forgot-password
+screens, so the whole flow can be demoed without a mailbox. Set `ALLOWED_EMAIL_DOMAIN` to restrict
+student sign-up to your college domain.
+
+
 ## Paper-page shell (F1)
 
 Every logbook screen is an A4 sheet that matches the printed page.
