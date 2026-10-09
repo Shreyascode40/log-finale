@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 260" role="img" aria-label="College building placeholder">
+  <rect width="700" height="260" fill="#e8eef3" />
+  <rect x="0" y="200" width="700" height="60" fill="#cfd8dc" />
+  <rect x="120" y="90" width="460" height="110" fill="#ffffff" stroke="#607d8b" stroke-width="3" />
+  <rect x="150" y="120" width="40" height="80" fill="#90a4ae" />
+  <rect x="210" y="120" width="40" height="80" fill="#90a4ae" />
+  <rect x="270" y="120" width="40" height="80" fill="#90a4ae" />
+  <rect x="330" y="110" width="60" height="90" fill="#b0bec5" />
+  <rect x="410" y="120" width="40" height="80" fill="#90a4ae" />
+  <rect x="470" y="120" width="40" height="80" fill="#90a4ae" />
+  <text x="350" y="70" font-family="serif" font-size="20" text-anchor="middle" fill="#37474f">College Building (placeholder)</text>
+</svg>

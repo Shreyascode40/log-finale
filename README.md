@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Digital BE Project Log Book
 
-## Getting Started
+Web app that digitizes the paper **Project Diary** (Record No. `ACA/D/003B`, Revision `00`,
+DoI `01/02/2025`) of Anantrao Pawar College of Engineering & Research — Computer Engineering.
 
-First, run the development server:
+The full specification is in [`SPEC.md`](./SPEC.md); the always-on agent rules and the paper-page
+UI requirement are in [`AGENTS.md`](./AGENTS.md).
+
+## Stack
+
+| Concern | Choice |
+|---|---|
+| Framework | Next.js 14 (App Router), TypeScript strict |
+| Styling | Tailwind CSS; shadcn/ui **outside** the logbook sheets only |
+| Forms / validation | React Hook Form + Zod |
+| Database | Prisma + SQLite in development (PostgreSQL in production) |
+| Auth | NextAuth (credentials) + bcrypt |
+| Uploads | local disk in dev, Cloudinary in production |
+| PDF | Puppeteer (A4), rendering the same Sheet components |
+| Tests | Vitest (unit) and Playwright (E2E / visual, added later) |
+
+## Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env          # then edit the values (Windows: copy .env.example .env)
+npm run db:migrate            # create/apply migrations (SQLite dev.db)
+npm run db:seed               # seed data (added feature by feature)
+npm run dev                   # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Useful scripts
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Script | What it does |
+|---|---|
+| `npm run dev` | Start the dev server |
+| `npm run build` / `npm start` | Production build / serve |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm test` | Vitest unit tests |
+| `npm run db:migrate` | `prisma migrate dev` |
+| `npm run db:seed` | `tsx prisma/seed.ts` |
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+## Paper-page shell (F1)
 
-## Learn More
+Every logbook screen is an A4 sheet that matches the printed page.
 
-To learn more about Next.js, take a look at the following resources:
+| Piece | Location |
+|---|---|
+| A4 sheet wrapper | `components/paper/paper-page.tsx` |
+| Repeated college header (record no., revision, DoI, grey "Project Diary" bar) | `components/paper/college-header.tsx` |
+| Blank-line field (prints as text when read-only/locked) | `components/paper/field.tsx` |
+| E-signature cell ("Signed by <name> on <date time>") | `components/paper/sign-cell.tsx` |
+| Marks cell (editable only by the assigned guide) | `components/paper/marks-cell.tsx` |
+| Tick box | `components/paper/tick-box.tsx` |
+| Table primitives | `components/paper/paper-table.tsx` |
+| Viewer shell (thumbnails, toolbar, zoom, Page Up/Down) | `components/viewer/sheet-viewer.tsx` |
+| Demo (screen + `?print=1`) | `app/demo/paper/page.tsx` |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The same Sheet components are rendered on screen and in the PDF route (`/print/[groupId]`, F16);
+there is no separate PDF template.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+### Static assets to replace with the real files
 
-## Deploy on Vercel
+| Path | Purpose |
+|---|---|
+| `public/logos/college-crest.svg` | Left logo on every sheet |
+| `public/logos/founder-portrait.svg` | Right portrait logo on every sheet |
+| `public/cover/building.svg` | Cover-page college building photo |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Switching development to PostgreSQL
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+1. Set `provider = "postgresql"` in `prisma/schema.prisma`.
+2. Point `DATABASE_URL` at your database.
+3. `npm run db:migrate`. Column names do not change (see `AGENTS.md` for the SQLite-to-Postgres
+   type mapping notes).

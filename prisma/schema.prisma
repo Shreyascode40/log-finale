@@ -1,0 +1,538 @@
+// Digital BE Project Log Book — Prisma schema
+// Source: SPEC.md Part B16.
+//
+// Deviations from the spec's PostgreSQL outline, required by the SQLite dev DB
+// (recorded in AGENTS.md):
+//   - enums -> String columns, validated in lib/validation and lib/permissions
+//     (Prisma does not support enums on SQLite)
+//   - Json  -> String columns holding JSON text via lib/json.ts helpers
+//     (Prisma does not support Json on SQLite)
+// The datasource can be switched to postgresql later; column names are unchanged.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------- auth / users
+
+model User {
+  id              String    @id @default(cuid())
+  name            String
+  email           String    @unique
+  rollNo          String?   @unique
+  mobile          String?
+  // STUDENT | GUIDE | HOD
+  role            String
+  passwordHash    String
+  emailVerifiedAt DateTime?
+  // 1 = active, 0 = deactivated (SQLite has no Boolean defaults on some versions)
+  active          Boolean   @default(true)
+  // SELF_SIGNUP | HOD_CREATED
+  createdVia      String    @default("SELF_SIGNUP")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  guidesGroups         Group[]                  @relation("GroupGuide")
+  memberships          GroupMember[]
+  createdGroups        Group[]                  @relation("GroupCreator")
+  invitesSent          GroupInvite[]            @relation("InviteSender")
+  emailTokens          EmailVerificationToken[]
+  resetTokens          PasswordResetToken[]
+  activityConfirmed    ActivityEntry[]          @relation("StudentConfirmed")
+  activityVerified     ActivityEntry[]          @relation("GuideVerified")
+  activityHistory      ActivityEntryHistory[]
+  topicsApproved       TopicProposal[]          @relation("TopicApprover")
+  reviewFormsSubmitted ReviewForm[]             @relation("ReviewSubmitter")
+  reviewFormsApproved  ReviewForm[]             @relation("ReviewApprover")
+  reviewScoresSigned   ReviewScore[]            @relation("ReviewScoresSigned")
+  markSheetsApproved   MarksSheet[]             @relation("MarksApprover")
+  pdfExports           PdfExport[]
+  notifications        Notification[]
+  auditLogs            AuditLog[]
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------- groups
+
+model Group {
+  id              String    @id @default(cuid())
+  // shareable code students use to join
+  code            String    @unique @default(cuid())
+  groupNo         String?
+  academicYear    String?
+  department      String?
+  projectTitle    String?
+  area            String?
+  guideId         String?
+  creatorId       String
+  isSponsored     Boolean   @default(false)
+  pdfPermission   Boolean   @default(false)
+  pdfPermissionBy String?
+  pdfPermissionAt DateTime?
+  // DRAFT | SUBMITTED | ACTIVE | READY_FOR_PDF | PDF_ALLOWED | PDF_GENERATED
+  status          String    @default("DRAFT")
+  rejectReason    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  guide             User?              @relation("GroupGuide", fields: [guideId], references: [id])
+  creator           User               @relation("GroupCreator", fields: [creatorId], references: [id])
+  members           GroupMember[]
+  invites           GroupInvite[]
+  topics            TopicProposal[]
+  activityEntries   ActivityEntry[]
+  contentPages      ContentPage[]
+  reviewForms       ReviewForm[]
+  markSheets        MarksSheet[]
+  examinerFeedbacks ExaminerFeedback[]
+  checklists        Checklist[]
+  competitions      Competition[]
+  papers            PaperPublication[]
+  sponsoredMeetings SponsoredMeeting[]
+  sponsorFeedbacks  SponsorFeedback[]
+  pdfExports        PdfExport[]
+}
+
+model GroupMember {
+  id                    String    @id @default(cuid())
+  groupId               String
+  userId                String
+  name                  String
+  teResult              String?
+  rollNo                String?
+  examSeatNo            String?
+  mobile                String?
+  email                 String?
+  contribution          String?
+  photoUrl              String?
+  // creator | member
+  memberType            String    @default("member")
+  rulesAckAt            DateTime?
+  undertakingAcceptedAt DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  group      Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user       User         @relation(fields: [userId], references: [id])
+  markSheets MarksSheet[]
+
+  @@unique([groupId, userId])
+}
+
+model GroupInvite {
+  id            String   @id @default(cuid())
+  groupId       String
+  invitedEmail  String?
+  invitedRollNo String?
+  code          String?
+  // PENDING | ACCEPTED | DECLINED | EXPIRED
+  status        String   @default("PENDING")
+  createdById   String
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  group     Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy User  @relation("InviteSender", fields: [createdById], references: [id])
+
+  @@index([groupId])
+}
+
+// ---------------------------------------------------------------- topics
+
+model TopicProposal {
+  id                  String    @id @default(cuid())
+  groupId             String
+  // 1 | 2
+  topicNo             Int
+  title               String?
+  description         String?
+  significance        Int?
+  innovativeness      Int?
+  scope               Int?
+  feasibility         Int?
+  // YES | NO
+  guideRecommendation String?
+  // DRAFT | SUBMITTED | SCORED | APPROVED | REJECTED
+  status              String    @default("DRAFT")
+  approvedById        String?
+  approvedAt          DateTime?
+  rejectReason        String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  group      Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  approvedBy User? @relation("TopicApprover", fields: [approvedById], references: [id])
+
+  @@unique([groupId, topicNo])
+}
+
+// ---------------------------------------------------------------- schedule
+
+model ScheduleItem {
+  id          String   @id @default(cuid())
+  // SEMESTER_I | SEMESTER_II
+  term        String
+  sortOrder   Int
+  description String
+  date        String?
+  note        String?
+  updatedAt   DateTime @updatedAt
+
+  @@unique([term, sortOrder])
+}
+
+// ---------------------------------------------------------------- activities
+
+model ActivityTemplate {
+  id        String @id @default(cuid())
+  // june | july | ... | may-june
+  month     String
+  sortOrder Int
+  text      String
+
+  entries ActivityEntry[]
+
+  @@unique([month, sortOrder])
+}
+
+model ActivityEntry {
+  id                   String    @id @default(cuid())
+  groupId              String
+  templateId           String
+  // june | july | ... | may-june
+  month                String
+  date                 String?
+  // PLANNED | STUDENT_CONFIRMED (status Complete/Incomplete kept in statusText)
+  // status: PLANNED | STUDENT_CONFIRMED | GUIDE_VERIFIED
+  status               String    @default("PLANNED")
+  // COMPLETE | INCOMPLETE
+  statusText           String?
+  studentConfirmedAt   DateTime?
+  studentConfirmedById String?
+  guideVerifiedAt      DateTime?
+  guideVerifiedById    String?
+  version              Int       @default(1)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  group              Group                  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  template           ActivityTemplate       @relation(fields: [templateId], references: [id])
+  studentConfirmedBy User?                  @relation("StudentConfirmed", fields: [studentConfirmedById], references: [id])
+  guideVerifiedBy    User?                  @relation("GuideVerified", fields: [guideVerifiedById], references: [id])
+  history            ActivityEntryHistory[]
+
+  @@unique([groupId, templateId])
+  @@index([groupId, month])
+}
+
+model ActivityEntryHistory {
+  id          String   @id @default(cuid())
+  entryId     String
+  snapshot    String // JSON text
+  changedAt   DateTime @default(now())
+  changedById String?
+
+  entry     ActivityEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  changedBy User?         @relation(fields: [changedById], references: [id])
+
+  @@index([entryId])
+}
+
+// ---------------------------------------------------------------- free content pages
+
+model ContentPage {
+  id        String   @id @default(cuid())
+  groupId   String
+  // RTM | COST | NOTE
+  type      String
+  richText  String?
+  fileUrl   String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, type, sortOrder])
+}
+
+// ---------------------------------------------------------------- reviews
+
+model ReviewTemplate {
+  id            String  @id @default(cuid())
+  // TERM_I | TERM_II
+  term          String
+  // REVIEW_I | REVIEW_II | FINAL_DESIGN | REVIEW_I_MODELING | REVIEW_II_CODING |
+  // FINAL_VALIDATION | REPORT_WRITING
+  reviewType    String
+  title         String
+  order         Int
+  // shows a Date column (Term-II coding / validation / report sheets)
+  hasDateColumn Boolean @default(false)
+
+  questions ReviewQuestion[]
+  forms     ReviewForm[]
+
+  @@unique([reviewType])
+}
+
+model ReviewQuestion {
+  id         String @id @default(cuid())
+  templateId String
+  questionNo Int
+  text       String
+
+  template ReviewTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  scores   ReviewScore[]
+
+  @@unique([templateId, questionNo])
+}
+
+model ReviewForm {
+  id                   String    @id @default(cuid())
+  groupId              String
+  templateId           String
+  remarkAndSuggestions String?
+  // assigned guide who edits the form
+  guideId              String?
+  // DRAFT | SUBMITTED | APPROVED
+  status               String    @default("DRAFT")
+  submittedById        String?
+  submittedAt          DateTime?
+  approvedById         String?
+  approvedAt           DateTime?
+  unlockReason         String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  group       Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  template    ReviewTemplate @relation(fields: [templateId], references: [id])
+  submittedBy User?          @relation("ReviewSubmitter", fields: [submittedById], references: [id])
+  approvedBy  User?          @relation("ReviewApprover", fields: [approvedById], references: [id])
+  scores      ReviewScore[]
+
+  @@unique([groupId, templateId])
+}
+
+model ReviewScore {
+  id              String    @id @default(cuid())
+  formId          String
+  questionId      String
+  remark          String?
+  // grade out of 10 (free text allowed by guide)
+  grade           String?
+  guideSignedAt   DateTime?
+  guideSignedById String?
+
+  form     ReviewForm     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  question ReviewQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  signedBy User?          @relation("ReviewScoresSigned", fields: [guideSignedById], references: [id])
+
+  @@unique([formId, questionId])
+}
+
+// ---------------------------------------------------------------- mark sheets
+
+model MarksSheet {
+  id           String    @id @default(cuid())
+  groupId      String
+  memberId     String
+  // MOCK_T1 | FINAL_T2
+  kind         String
+  // JSON text: { componentKey: number }
+  components   String    @default("{}")
+  total        Int       @default(0)
+  // DRAFT | SUBMITTED | APPROVED
+  status       String    @default("DRAFT")
+  guideId      String?
+  approvedById String?
+  approvedAt   DateTime?
+  unlockReason String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  group      Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  member     GroupMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  approvedBy User?       @relation("MarksApprover", fields: [approvedById], references: [id])
+
+  @@unique([groupId, memberId, kind])
+}
+
+// ---------------------------------------------------------------- examiner feedback
+
+model ExaminerFeedback {
+  id           String    @id @default(cuid())
+  groupId      String
+  // TERM_I | TERM_II
+  term         String
+  // JSON text: array of Excellent|Good|Satisfactory
+  answers      String    @default("[]")
+  remarks      String?
+  projectTitle String?
+  date         String?
+  externalName String?
+  internalName String?
+  signedAt     DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, term])
+}
+
+// ---------------------------------------------------------------- checklists
+
+model Checklist {
+  id        String   @id @default(cuid())
+  groupId   String
+  // TERM_I | TERM_II
+  term      String
+  // JSON text: array of { text, checked }
+  items     String   @default("[]")
+  updatedAt DateTime @updatedAt
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, term])
+}
+
+// ---------------------------------------------------------------- competitions & papers
+
+model Competition {
+  id              String   @id @default(cuid())
+  groupId         String
+  name            String
+  date            String?
+  collegeAndLevel String?
+  // POSTER | DEMO | PAPER_PRESENTATION
+  type            String?
+  award           String?
+  certificateUrl  String?
+  createdAt       DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+}
+
+model PaperPublication {
+  id         String   @id @default(cuid())
+  groupId    String
+  title      String
+  conference String?
+  issn       String?
+  volIssue   String?
+  pageNo     String?
+  fileUrl    String?
+  createdAt  DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------- sponsored project
+
+model SponsoredMeeting {
+  id                    String    @id @default(cuid())
+  groupId               String
+  // SEMESTER_1 | SEMESTER_2
+  semester              String
+  sortOrder             Int       @default(1)
+  date                  String?
+  summaryPrev           String?
+  summaryNext           String?
+  studentSignedAt       DateTime?
+  guideSignedAt         DateTime?
+  externalGuideSignedAt DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, semester, sortOrder])
+}
+
+model SponsorFeedback {
+  id        String    @id @default(cuid())
+  groupId   String
+  company   String?
+  // JSON text: { p1: "HIGH|MEDIUM|LOW", ... p7 }
+  ratings   String    @default("{}")
+  sealUrl   String?
+  signedAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId])
+}
+
+// ---------------------------------------------------------------- pdf, notifications, audit
+
+model PdfExport {
+  id            String   @id @default(cuid())
+  groupId       String
+  generatedById String
+  generatedAt   DateTime @default(now())
+  fileUrl       String
+
+  group       Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  generatedBy User  @relation(fields: [generatedById], references: [id])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  message   String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  // JSON text
+  before    String?
+  after     String?
+  timestamp DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([timestamp])
+}

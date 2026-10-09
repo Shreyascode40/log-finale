@@ -1,0 +1,12 @@
+export { CollegeHeader } from "./college-header";
+export { PaperPage } from "./paper-page";
+export type { PaperPageProps } from "./paper-page";
+export { Field } from "./field";
+export type { FieldProps } from "./field";
+export { SignCell } from "./sign-cell";
+export type { SignCellProps } from "./sign-cell";
+export { MarksCell } from "./marks-cell";
+export type { MarksCellProps } from "./marks-cell";
+export { TickBox } from "./tick-box";
+export type { TickBoxProps } from "./tick-box";
+export { PaperTable, PaperHead, PaperBody, PaperRow, PaperTh, PaperTd } from "./paper-table";

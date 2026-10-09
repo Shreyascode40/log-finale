@@ -2,32 +2,284 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --sidebar: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
   }
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+/* =====================================================================
+   PAPER-PAGE LAYER
+   Everything here belongs to the A4 "sheet" rendering. App chrome must
+   never leak into it (see AGENTS.md — Paper-Page UI requirement).
+   ===================================================================== */
+
+:root {
+  /* A4 at 96dpi */
+  --paper-width: 794px;
+  --paper-height: 1123px;
+  --paper-pad-x: 57px; /* ~15mm */
+  --paper-pad-y: 45px; /* ~12mm */
+  --ink: #000000;
+  --paper-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  --font-paper-serif: var(--font-serif), "Times New Roman", "Liberation Serif", serif;
+  --font-paper-sans: var(--font-sans-title), Arial, "Liberation Sans", sans-serif;
+}
+
+.paper-desk {
+  background: #8a8a8a;
+  min-height: 100vh;
+}
+
+.paper-page {
+  box-sizing: border-box;
+  position: relative;
+  width: var(--paper-width);
+  min-height: var(--paper-height);
+  height: var(--paper-height);
+  padding: var(--paper-pad-y) var(--paper-pad-x);
+  background: #ffffff;
+  color: var(--ink);
+  font-family: var(--font-paper-serif);
+  font-size: 12px;
+  line-height: 1.4;
+  box-shadow: var(--paper-shadow);
+  overflow: hidden;
+  /* keep printed colours (grey bars, cover banner) on screen and in PDF */
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.paper-page--flow {
+  height: auto;
+  min-height: var(--paper-height);
+  overflow: visible;
+}
+
+/* Body copy inside a sheet always uses the serif face. */
+.paper-serif {
+  font-family: var(--font-paper-serif);
+}
+
+.paper-sans {
+  font-family: var(--font-paper-sans);
+}
+
+/* Section titles look like the logbook: bold sans-serif, centred. */
+.paper-title {
+  font-family: var(--font-paper-sans);
+  font-weight: 700;
+  font-size: 16px;
+  text-align: center;
+  line-height: 1.25;
+  margin: 10px 0;
+}
+
+.paper-subtitle {
+  font-family: var(--font-paper-sans);
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+  margin: 6px 0;
+}
+
+/* Tables in the logbook: 1px black borders, no rounding, no zebra. */
+.paper-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-paper-serif);
+  font-size: 12px;
+}
+
+.paper-table th,
+.paper-table td {
+  border: 1px solid var(--ink);
+  padding: 3px 5px;
+  vertical-align: top;
+  text-align: left;
+}
+
+.paper-table th {
+  font-weight: 700;
+  text-align: center;
+}
+
+.paper-table-row {
+  break-inside: avoid;
+}
+
+/* Blank "_____" line inside a sheet. Becomes an input when editable. */
+.paper-field {
+  display: inline-block;
+  min-width: 40px;
+  border: 0;
+  border-bottom: 1px solid var(--ink);
+  background: transparent;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.3;
+  padding: 0 2px;
+  color: inherit;
+  outline: none;
+}
+
+.paper-field:focus {
+  border-bottom-color: #2563eb;
+  box-shadow: 0 1px 0 0 #2563eb;
+}
+
+.paper-field--missing {
+  border-bottom: 1px dotted #b91c1c;
+}
+
+.paper-field--readonly {
+  border-bottom: 1px solid var(--ink);
+  min-height: 1.3em;
+}
+
+/* Grey bar used in the header ("Project Diary") and small caption bars. */
+.paper-grey-bar {
+  background: #d9d9d9;
+}
+
+/* E-signature rendering: name + timestamp in a small italic serif. */
+.paper-sign {
+  font-family: var(--font-paper-serif);
+  font-style: italic;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+/* "Not available" overlay for a disabled sheet. */
+.paper-disabled-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(120, 120, 120, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Viewer shell: scale the fixed sheet down on narrow screens, never reflow. */
+.paper-viewport {
+  overflow: auto;
+}
+
+.paper-scaler {
+  transform-origin: top center;
+}
+
+/* ------------------------------------------------------------------ print */
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+  }
+
+  /* Hide everything that is app chrome, then reveal the paper. */
+  .print-hide {
+    display: none !important;
+  }
+
+  .paper-desk {
+    background: #ffffff;
+    min-height: 0;
+  }
+
+  .paper-viewport {
+    overflow: visible;
+  }
+
+  .paper-scaler {
+    transform: none !important;
+  }
+
+  .paper-page {
+    box-shadow: none;
+    margin: 0 auto;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .paper-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .paper-table tr,
+  .paper-table-row {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }

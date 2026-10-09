@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 120" role="img" aria-label="Founder portrait placeholder">
+  <rect x="1" y="1" width="78" height="118" fill="#ffffff" stroke="#000000" stroke-width="2" />
+  <circle cx="40" cy="42" r="20" fill="none" stroke="#000000" stroke-width="2" />
+  <path d="M12 108 C14 78 26 68 40 68 C54 68 66 78 68 108 Z" fill="none" stroke="#000000" stroke-width="2" />
+  <text x="40" y="116" font-family="serif" font-size="7" text-anchor="middle" fill="#000">PORTRAIT</text>
+</svg>
