@@ -10,7 +10,11 @@ export default defineConfig({
     pool: "forks",
     poolOptions: { forks: { singleFork: true } },
     env: {
-      DATABASE_URL: "file:./test.db",
+      // Honour ambient Supabase URLs when set (production parity); otherwise
+      // fall back to the throwaway local file (works only while the Prisma
+      // provider is sqlite).
+      DATABASE_URL: process.env.DATABASE_URL ?? "file:./test.db",
+      DIRECT_URL: process.env.DIRECT_URL ?? "",
       EMAIL_PROVIDER: "noop",
       NEXTAUTH_SECRET: "test-secret",
       NEXTAUTH_URL: "http://localhost:3000",

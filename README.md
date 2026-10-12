@@ -13,9 +13,9 @@ UI requirement are in [`AGENTS.md`](./AGENTS.md).
 | Framework | Next.js 14 (App Router), TypeScript strict |
 | Styling | Tailwind CSS; shadcn/ui **outside** the logbook sheets only |
 | Forms / validation | React Hook Form + Zod |
-| Database | Prisma + SQLite in development (PostgreSQL in production) |
+| Database | PostgreSQL via Supabase (`DATABASE_URL` pooled + `DIRECT_URL` direct) |
 | Auth | NextAuth (credentials) + bcrypt |
-| Uploads | local disk in dev, Cloudinary in production |
+| Uploads | local disk with `UPLOAD_PROVIDER="local"`, Supabase Storage with `"supabase"` |
 | PDF | Puppeteer (A4), rendering the same Sheet components |
 | Tests | Vitest (unit) and Playwright (E2E / visual, added later) |
 
@@ -24,7 +24,7 @@ UI requirement are in [`AGENTS.md`](./AGENTS.md).
 ```bash
 npm install
 cp .env.example .env          # then edit the values (Windows: copy .env.example .env)
-npm run db:migrate            # create/apply migrations (SQLite dev.db)
+npm run db:migrate            # apply migrations to DATABASE_URL (Supabase Postgres)
 npm run db:seed               # seed data (added feature by feature)
 npm run dev                   # http://localhost:3000
 ```
@@ -151,8 +151,8 @@ whose status is `PDF_GENERATED` is locked. Every cover, member and photo change 
 row (`COVER_UPDATE`, `MEMBER_UPDATE`, `MEMBER_PHOTO_UPDATE`).
 
 Uploads are written to `var/uploads/` and served through `/media/[...path]` (files added to
-`public/` at runtime are not served by `next start`); production switches the provider to Cloudinary
-via `UPLOAD_PROVIDER`.
+`public/` at runtime are not served by `next start`); production switches the provider to Supabase
+Storage via `UPLOAD_PROVIDER="supabase"`.
 
 **Demo flow:** log in as `te2105` → `/student/cover`, fill the department, A.Y., project title, area
 and group number (the guide appears once the HOD has assigned one); then `/student/members` and fill
@@ -521,3 +521,32 @@ Notes:
   the paper look is preserved by the CSS fallbacks.
 - Quality gates before every release: `npm run typecheck`, `npm run lint`, `npm test`
   (119 passing), `npm run build`.
+
+## Deploying to Render + Supabase
+
+1. **Supabase project.** Create a project at supabase.com, then open Project Settings →
+   Database and copy two connection strings: the **pooled** one (port `6543`, append
+   `?pgbouncer=true&connection_limit=1`) → `DATABASE_URL`, and the **direct** one
+   (port `5432`) → `DIRECT_URL`.
+2. **Storage bucket.** Storage → New bucket, name it `logbook-uploads` (or your
+   `SUPABASE_BUCKET`), mark it **public**. Copy the project URL → `SUPABASE_URL` and a
+   service-role key (Project Settings → API) → `SUPABASE_SERVICE_ROLE_KEY` (server-side
+   only — it bypasses storage policies, never commit it).
+3. **Render service.** New → Web Service → point at this repo (or `render.yaml`
+   blueprint). Runtime Docker, plan free, health check `/login`. The container start
+   command runs `prisma migrate deploy` on every deploy, so the schema is applied
+   automatically; `CHROME_PATH=/usr/bin/chromium` is baked into the image.
+4. **Env vars.** Set every var in `render.yaml` in the Render dashboard
+   (`sync: false` ones especially: `DATABASE_URL`, `DIRECT_URL`, `NEXTAUTH_SECRET`
+   or let `generateValue` create it, `SUPABASE_*`, `EMAIL_*`). Set
+   `UPLOAD_PROVIDER="supabase"`.
+5. **Seed once.** After the first deploy, run the seed a single time from a Render
+   Shell (`npm run db:seed`) to create the HOD, guides, students, schedule, activity
+   templates and review questions. Re-running it is idempotent (upserts only).
+6. **Live URLs + redeploy.** Set `NEXTAUTH_URL` and `PDF_BASE_URL` to the live Render
+   URL (e.g. `https://be-logbook.onrender.com`) and redeploy — auth callbacks and the
+   Puppeteer print renderer both depend on it.
+7. **Ephemeral disk.** Render's filesystem resets on redeploy, so files under
+   `var/uploads/` (member photos on `local`, generated PDFs) do not survive. Member
+   photos are safe on Supabase Storage; generated PDFs can be re-created on demand
+   from `/student/pdf`.

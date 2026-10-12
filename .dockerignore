@@ -1,0 +1,13 @@
+node_modules
+.next
+out
+build
+coverage
+.git
+.vercel
+.env
+.env*.local
+var
+*.db
+*.db-journal
+npm-debug.log*

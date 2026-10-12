@@ -6,8 +6,9 @@ import { uploadRoot } from "@/lib/upload";
 /**
  * Serves locally stored uploads (`var/uploads`) with the right content type.
  * Needed because `next start` does not serve files added to `public/` after the
- * build. Production uses Cloudinary URLs instead, so this route is dev-only in
- * practice but always safe to leave in place.
+ * build. With UPLOAD_PROVIDER="supabase" files live in Supabase Storage
+ * instead, so this route is dev-only in practice but always safe to leave in
+ * place.
  */
 
 export const dynamic = "force-dynamic";

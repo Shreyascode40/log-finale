@@ -1,21 +1,19 @@
 // Digital BE Project Log Book — Prisma schema
 // Source: SPEC.md Part B16.
 //
-// Deviations from the spec's PostgreSQL outline, required by the SQLite dev DB
-// (recorded in AGENTS.md):
-//   - enums -> String columns, validated in lib/validation and lib/permissions
-//     (Prisma does not support enums on SQLite)
-//   - Json  -> String columns holding JSON text via lib/json.ts helpers
-//     (Prisma does not support Json on SQLite)
-// The datasource can be switched to postgresql later; column names are unchanged.
+// Production database is PostgreSQL (Supabase). Enums and Json-like data stay
+// as String columns holding enum names / JSON text (helpers in lib/json.ts),
+// validated in lib/validation and lib/permissions; column names are unchanged
+// from the original outline (recorded in AGENTS.md).
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------------- auth / users
