@@ -25,7 +25,8 @@ export class AuthError extends Error {
       | "EMAIL_TAKEN"
       | "ROLL_TAKEN"
       | "INVALID_TOKEN"
-      | "USER_NOT_FOUND",
+      | "USER_NOT_FOUND"
+      | "EMAIL_FAILED",
     message: string,
   ) {
     super(message);
@@ -123,11 +124,29 @@ export async function signupStudent(input: unknown): Promise<{
   });
 
   const verificationUrl = `${baseUrl()}/verify-email?token=${rawToken}`;
-  await sendEmail({
-    to: email,
-    subject: "Verify your email — Digital BE Project Log Book",
-    text: `Hello ${name},\n\nVerify your email to activate your account:\n${verificationUrl}\n\nThis link expires in 24 hours.`,
-  });
+  try {
+    await sendEmail({
+      to: email,
+      subject: "Verify your email — Digital BE Project Log Book",
+      text: `Hello ${name},\n\nVerify your email to activate your account:\n${verificationUrl}\n\nThis link expires in 24 hours.`,
+    });
+  } catch (error) {
+    // The mail provider rejected the send (unverified sender domain, blocked
+    // recipient, …). Roll the account back so the address stays free and the
+    // student can simply retry signup — never strand an unverifiable account.
+    console.error(
+      `signup email failed for ${email}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    await prisma.$transaction(async (tx) => {
+      await tx.emailVerificationToken.deleteMany({ where: { userId: user.id } });
+      await tx.auditLog.deleteMany({ where: { userId: user.id } });
+      await tx.user.delete({ where: { id: user.id } });
+    });
+    throw new AuthError(
+      "EMAIL_FAILED",
+      "We couldn't send the verification email. Please try again later or contact your administrator.",
+    );
+  }
 
   return {
     userId: user.id,
@@ -203,11 +222,21 @@ export async function requestPasswordReset(input: unknown): Promise<{ resetUrl?:
   });
 
   const resetUrl = `${baseUrl()}/reset-password?token=${rawToken}`;
-  await sendEmail({
-    to: user.email,
-    subject: "Reset your password — Digital BE Project Log Book",
-    text: `Hello ${user.name},\n\nReset your password using this link (valid for 1 hour):\n${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
-  });
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: "Reset your password — Digital BE Project Log Book",
+      text: `Hello ${user.name},\n\nReset your password using this link (valid for 1 hour):\n${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
+    });
+  } catch (error) {
+    // Same generic response as for unknown emails: the endpoint must not
+    // reveal whether the address is registered or whether sending worked.
+    // The unused token simply expires.
+    console.error(
+      `password-reset email failed for ${user.email}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return {};
+  }
 
   return { resetUrl: exposesDevLinks() ? resetUrl : undefined };
 }

@@ -25,7 +25,7 @@ services:
       - key: ALLOWED_EMAIL_DOMAIN
         value: ""
       - key: EMAIL_PROVIDER
-        value: resend
+        sync: false
       - key: EMAIL_FROM
         sync: false
       - key: RESEND_API_KEY

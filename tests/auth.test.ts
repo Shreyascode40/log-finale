@@ -1,8 +1,10 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { signupSchema } from "@/lib/validation/auth";
+import { sendEmail } from "@/lib/email";
 import {
   authenticate,
+  requestPasswordReset,
   resetPassword,
   signupStudent,
   verifyEmail,
@@ -15,6 +17,13 @@ import {
   canViewGroup,
   type CurrentUser,
 } from "@/lib/permissions";
+
+// The mailer is stubbed: resolving by default (like the noop provider), made
+// to fail per-test for the email-failure paths below.
+vi.mock("@/lib/email", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/lib/email")>();
+  return { ...mod, sendEmail: vi.fn(async () => {}) };
+});
 
 const unique = () => Math.random().toString(36).slice(2, 10);
 const createdEmails: string[] = [];
@@ -104,6 +113,35 @@ describe("login requires a verified email", () => {
     await expect(resetPassword({ token: "x".repeat(30), password: "Password@456" })).rejects.toThrow(
       /invalid or has expired/,
     );
+  });
+});
+
+describe("email delivery failure is safe", () => {
+  it("rolls back a signup when the verification email cannot be sent", async () => {
+    const input = newStudentInput();
+    vi.mocked(sendEmail).mockRejectedValueOnce(new Error("Resend rejected the email (403)"));
+
+    await expect(signupStudent(input)).rejects.toThrow(/couldn't send the verification email/);
+
+    // No stranded account, token, or audit residue remains.
+    expect(await prisma.user.findUnique({ where: { email: input.email } })).toBeNull();
+    expect(
+      await prisma.emailVerificationToken.findMany({ where: { user: { email: input.email } } }),
+    ).toEqual([]);
+
+    // The same email and roll number can retry and now succeed.
+    const retry = await signupStudent(input);
+    expect(retry.userId).toBeTruthy();
+    expect(retry.verificationUrl).toBeDefined();
+  });
+
+  it("forgot-password returns the generic response when sending fails", async () => {
+    const input = newStudentInput();
+    await signupStudent(input);
+
+    vi.mocked(sendEmail).mockRejectedValueOnce(new Error("boom"));
+    // Identical to the unknown-email response: nothing is revealed.
+    await expect(requestPasswordReset({ email: input.email })).resolves.toEqual({});
   });
 });
 

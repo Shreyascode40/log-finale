@@ -550,3 +550,22 @@ Notes:
    `var/uploads/` (member photos on `local`, generated PDFs) do not survive. Member
    photos are safe on Supabase Storage; generated PDFs can be re-created on demand
    from `/student/pdf`.
+
+## Email (Resend)
+
+Set on Render: `EMAIL_PROVIDER=resend`, `RESEND_API_KEY` (secret), `EMAIL_FROM`.
+
+- **Testing:** with the default sender `Digital BE Log Book <onboarding@resend.dev>`,
+  Resend only delivers to the email address of the Resend account owner. Use your
+  own address to sign up and confirm the verification mail arrives.
+- **Real users:** verify a domain in Resend (Domains → Add Domain, add the DNS
+  records it shows), then set `EMAIL_FROM` to an address on that domain, e.g.
+  `Digital BE Log Book <no-reply@yourdomain.com>`. Until the domain is verified,
+  signups for other addresses fail safely: no account is left behind and the
+  student sees "We couldn't send the verification email…" and can retry.
+- **Alternatives:** `EMAIL_PROVIDER=smtp` (e.g. Gmail with an App Password via the
+  `SMTP_*` vars) or `EMAIL_PROVIDER=console` for demos only (prints mail to the
+  server log, delivers nothing).
+- **When mail does not arrive:** check the Resend dashboard “Emails” log first
+  (rejections name the reason, e.g. unverified domain), then the spam folder, then
+  the Render service logs (send failures are logged server-side without secrets).
