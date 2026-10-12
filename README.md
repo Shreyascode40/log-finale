@@ -569,3 +569,6 @@ Set on Render: `EMAIL_PROVIDER=resend`, `RESEND_API_KEY` (secret), `EMAIL_FROM`.
 - **When mail does not arrive:** check the Resend dashboard “Emails” log first
   (rejections name the reason, e.g. unverified domain), then the spam folder, then
   the Render service logs (send failures are logged server-side without secrets).
+- **Demos:** set `REQUIRE_EMAIL_VERIFICATION=false` on Render and redeploy to let
+  new accounts log in instantly with no mailbox. Flip it back to `"true"` (or delete
+  the variable) afterwards to restore verification — no code changes needed.

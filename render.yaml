@@ -25,6 +25,8 @@ services:
         value: ""
       - key: EMAIL_PROVIDER
         sync: false
+      - key: REQUIRE_EMAIL_VERIFICATION
+        value: "true"
       - key: EMAIL_FROM
         sync: false
       - key: RESEND_API_KEY

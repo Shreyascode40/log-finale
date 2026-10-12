@@ -61,6 +61,16 @@ function isAllowedEmail(email: string): boolean {
 }
 
 /**
+ * Demo kill-switch for email verification (default ON, per master prompt rule
+ * 11). Set REQUIRE_EMAIL_VERIFICATION="false" to let new accounts log in
+ * immediately without a verification mail; flip it back to restore the normal
+ * flow. Read at call time so tests can toggle it.
+ */
+export function emailVerificationRequired(): boolean {
+  return process.env.REQUIRE_EMAIL_VERIFICATION !== "false";
+}
+
+/**
  * Student self-registration.
  *
  * The role is hard-coded to STUDENT here: even if a caller passes `role`, the
@@ -89,6 +99,7 @@ export async function signupStudent(input: unknown): Promise<{
 
   const passwordHash = await hashPassword(password);
   const rawToken = generateToken();
+  const verificationRequired = emailVerificationRequired();
 
   const user = await prisma.$transaction(async (tx) => {
     const created = await tx.user.create({
@@ -101,15 +112,19 @@ export async function signupStudent(input: unknown): Promise<{
         // role is never taken from the client
         role: "STUDENT" satisfies Role,
         createdVia: "SELF_SIGNUP",
+        // Demo mode (flag off) activates the account immediately.
+        ...(verificationRequired ? {} : { emailVerifiedAt: new Date() }),
       },
     });
-    await tx.emailVerificationToken.create({
-      data: {
-        userId: created.id,
-        tokenHash: hashToken(rawToken),
-        expiresAt: expiresIn(EMAIL_VERIFICATION_TTL_MS),
-      },
-    });
+    if (verificationRequired) {
+      await tx.emailVerificationToken.create({
+        data: {
+          userId: created.id,
+          tokenHash: hashToken(rawToken),
+          expiresAt: expiresIn(EMAIL_VERIFICATION_TTL_MS),
+        },
+      });
+    }
     await logAction(
       {
         userId: created.id,
@@ -122,6 +137,10 @@ export async function signupStudent(input: unknown): Promise<{
     );
     return created;
   });
+
+  if (!verificationRequired) {
+    return { userId: user.id };
+  }
 
   const verificationUrl = `${baseUrl()}/verify-email?token=${rawToken}`;
   try {
@@ -164,7 +183,9 @@ export async function authenticate(email: string, password: string): Promise<Aut
   if (!passwordOk) return { ok: false, reason: "INVALID_CREDENTIALS" };
 
   if (!user.active) return { ok: false, reason: "ACCOUNT_INACTIVE" };
-  if (!user.emailVerifiedAt) return { ok: false, reason: "EMAIL_NOT_VERIFIED" };
+  if (emailVerificationRequired() && !user.emailVerifiedAt) {
+    return { ok: false, reason: "EMAIL_NOT_VERIFIED" };
+  }
 
   return {
     ok: true,

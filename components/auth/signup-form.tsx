@@ -14,7 +14,7 @@ import { signupSchema } from "@/lib/validation/auth";
 
 type SignupValues = z.infer<typeof signupSchema>;
 
-export function SignupForm() {
+export function SignupForm({ verificationRequired }: { verificationRequired: boolean }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [done, setDone] = useState<{ verificationUrl?: string } | null>(null);
 
@@ -42,8 +42,9 @@ export function SignupForm() {
       <div className="space-y-4">
         <Alert>
           <AlertDescription>
-            Account created. We sent a verification link to your email — open it to activate your
-            account, then sign in.
+            {verificationRequired
+              ? "Account created. We sent a verification link to your email — open it to activate your account, then sign in."
+              : "Account created. You can sign in right away — no verification needed."}
           </AlertDescription>
         </Alert>
         {done.verificationUrl ? (

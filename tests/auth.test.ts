@@ -4,6 +4,7 @@ import { signupSchema } from "@/lib/validation/auth";
 import { sendEmail } from "@/lib/email";
 import {
   authenticate,
+  emailVerificationRequired,
   requestPasswordReset,
   resetPassword,
   signupStudent,
@@ -142,6 +143,38 @@ describe("email delivery failure is safe", () => {
     vi.mocked(sendEmail).mockRejectedValueOnce(new Error("boom"));
     // Identical to the unknown-email response: nothing is revealed.
     await expect(requestPasswordReset({ email: input.email })).resolves.toEqual({});
+  });
+});
+
+describe("email verification kill-switch", () => {
+  it("is on by default", () => {
+    delete process.env.REQUIRE_EMAIL_VERIFICATION;
+    expect(emailVerificationRequired()).toBe(true);
+  });
+
+  it("demo mode activates accounts instantly with no token or mail", async () => {
+    const previous = process.env.REQUIRE_EMAIL_VERIFICATION;
+    process.env.REQUIRE_EMAIL_VERIFICATION = "false";
+    try {
+      expect(emailVerificationRequired()).toBe(false);
+
+      const input = newStudentInput();
+      const { userId, verificationUrl } = await signupStudent(input);
+      expect(verificationUrl).toBeUndefined();
+
+      const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+      expect(user.emailVerifiedAt).not.toBeNull();
+      expect(
+        await prisma.emailVerificationToken.findMany({ where: { userId } }),
+      ).toEqual([]);
+
+      // Login works immediately, no verification click needed.
+      const login = await authenticate(input.email, input.password);
+      expect(login.ok).toBe(true);
+    } finally {
+      if (previous === undefined) delete process.env.REQUIRE_EMAIL_VERIFICATION;
+      else process.env.REQUIRE_EMAIL_VERIFICATION = previous;
+    }
   });
 });
 

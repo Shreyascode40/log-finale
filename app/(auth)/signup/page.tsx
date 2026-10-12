@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SignupForm } from "@/components/auth/signup-form";
+import { emailVerificationRequired } from "@/lib/services/auth";
 
 export const metadata = { title: "Student sign up — Digital BE Log Book" };
 
@@ -14,7 +15,7 @@ export default function SignupPage() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <SignupForm />
+        <SignupForm verificationRequired={emailVerificationRequired()} />
         <p className="text-center text-xs">
           Already registered?{" "}
           <Link className="underline" href="/login">
