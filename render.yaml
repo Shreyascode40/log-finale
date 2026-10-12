@@ -8,7 +8,6 @@ services:
     dockerfilePath: ./Dockerfile
     plan: free
     healthCheckPath: /login
-    startCommand: npx prisma migrate deploy && npm start
     envVars:
       - key: NODE_ENV
         value: production
