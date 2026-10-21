@@ -85,7 +85,7 @@ export function CoverSheetScreen({ initial, guideName, editable, print }: CoverS
           <img
             src="/cover/college-building.webp"
             alt="Anantrao Pawar College of Engineering & Research building"
-            style={{ maxWidth: "68%", maxHeight: "210px" }}
+            style={{ display: "block", margin: "0 auto", maxWidth: "68%", maxHeight: "210px" }}
           />
         </div>
 
