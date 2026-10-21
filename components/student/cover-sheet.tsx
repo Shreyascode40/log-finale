@@ -83,8 +83,8 @@ export function CoverSheetScreen({ initial, guideName, editable, print }: CoverS
         <div style={{ textAlign: "center", margin: "20px 0" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/cover/building.svg"
-            alt="College building"
+            src="/cover/college-building.webp"
+            alt="Anantrao Pawar College of Engineering & Research building"
             style={{ maxWidth: "68%", maxHeight: "210px" }}
           />
         </div>

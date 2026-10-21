@@ -503,9 +503,9 @@ actor's own actions and schedule changes, which concern everyone.
 |---|---|
 | `public/logos/college-crest.webp` | Left logo on every sheet (copied from `logo/SMM-11.webp`) |
 | `public/logos/founder-portrait.webp` | Right portrait logo on every sheet (copied from `logo/ap1-1.webp`) |
-| `public/cover/building.svg` | Cover-page college building photo (still a placeholder) |
+| `public/cover/college-building.webp` | Cover-page college building photo (copied from `logo/college-building.webp`) |
 
-The old SVG logo placeholders remain in `public/logos/` but are no longer referenced.
+The old SVG logo and cover placeholders remain in `public/logos/` and `public/cover/` but are no longer referenced.
 
 ## Switching development to PostgreSQL
 
