@@ -462,10 +462,25 @@ mark-all-read.
 | Inbox actions + bell | `lib/actions/notifications.ts`, `components/app/notifications-bell.tsx` (wired into `AppHeader`) |
 | Email providers | `lib/email.ts` (+ `nodemailer`) |
 
-**Tests:** 119 passing across 18 files (`npm test`), covering every permission rule in the
+**Tests:** 127 passing across 19 files (`npm test`), covering every permission rule in the
 master prompt (student/other-guide/HOD mark writes refused, approval locks, HOD-only unlocks
 with reasons, Topic-2 lock, 5th member, one-group rule, PDF gate) plus the full workflow of
 each feature.
+
+### HOD media gallery
+
+A read-only, HOD-only gallery of the uploaded evidence: `/hod/gallery` links to
+`/hod/gallery/certificates` (competition certificates) and `/hod/gallery/papers`
+(paper files). Each page has a group filter, search, image thumbnails or PDF tiles,
+and a lightbox that previews images and PDFs. It also counts records that still have
+no upload. This feature is additive — no existing page, sheet or navigation was
+changed, so open `/hod/gallery` directly.
+
+| Piece | Location |
+|---|---|
+| Service (file-only listing, counts, metadata) | `lib/services/gallery.ts` |
+| Gallery screen (filters, grid, lightbox) | `components/gallery/gallery-view.tsx` |
+| Pages | `app/hod/gallery/` (`page.tsx`, `certificates`, `papers`) |
 
 ### Recent activity (auto-refreshing)
 
@@ -520,7 +535,7 @@ Notes:
 - Google Fonts fall back to local serif/sans stacks when the network is unavailable;
   the paper look is preserved by the CSS fallbacks.
 - Quality gates before every release: `npm run typecheck`, `npm run lint`, `npm test`
-  (119 passing), `npm run build`.
+  (127 passing), `npm run build`.
 
 ## Deploying to Render + Supabase
 
