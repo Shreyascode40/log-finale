@@ -497,13 +497,15 @@ actor's own actions and schedule changes, which concern everyone.
 | Server action | `lib/actions/activity.ts` |
 | Auto-refreshing panel | `components/app/recent-activity.tsx` |
 
-### Static assets to replace with the real files
+### Static assets
 
 | Path | Purpose |
 |---|---|
-| `public/logos/college-crest.svg` | Left logo on every sheet |
-| `public/logos/founder-portrait.svg` | Right portrait logo on every sheet |
-| `public/cover/building.svg` | Cover-page college building photo |
+| `public/logos/college-crest.webp` | Left logo on every sheet (copied from `logo/SMM-11.webp`) |
+| `public/logos/founder-portrait.webp` | Right portrait logo on every sheet (copied from `logo/ap1-1.webp`) |
+| `public/cover/building.svg` | Cover-page college building photo (still a placeholder) |
+
+The old SVG logo placeholders remain in `public/logos/` but are no longer referenced.
 
 ## Switching development to PostgreSQL
 

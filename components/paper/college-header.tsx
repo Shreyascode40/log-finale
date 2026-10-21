@@ -14,8 +14,8 @@ export function CollegeHeader() {
             <td rowSpan={2} style={{ width: "88px", textAlign: "center", verticalAlign: "middle" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/logos/college-crest.svg"
-                alt="College logo"
+                src="/logos/college-crest.webp"
+                alt="Anantrao Pawar College of Engineering & Research crest"
                 style={{ maxHeight: "62px", maxWidth: "72px", margin: "0 auto" }}
               />
             </td>
@@ -30,7 +30,7 @@ export function CollegeHeader() {
             <td rowSpan={2} style={{ width: "66px", textAlign: "center", verticalAlign: "middle" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/logos/founder-portrait.svg"
+                src="/logos/founder-portrait.webp"
                 alt="Founder portrait"
                 style={{ maxHeight: "62px", maxWidth: "54px", margin: "0 auto" }}
               />
