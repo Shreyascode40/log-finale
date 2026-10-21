@@ -16,6 +16,7 @@ const LINKS = [
   { href: "/hod/final", label: "Final eval" },
   { href: "/hod/examiner", label: "Examiner" },
   { href: "/hod/records", label: "Records" },
+  { href: "/hod/gallery", label: "Gallery" },
   { href: "/hod/sponsored", label: "Sponsored" },
   { href: "/hod/audit", label: "Audit log" },
 ];
@@ -26,7 +27,9 @@ export function HodNav() {
     <nav className="border-b bg-white">
       <div className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4">
         {LINKS.map((link) => {
-          const active = pathname === link.href;
+          const active =
+            pathname === link.href ||
+            (link.href === "/hod/gallery" && pathname.startsWith("/hod/gallery/"));
           return (
             <Link
               key={link.href}

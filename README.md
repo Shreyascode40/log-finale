@@ -473,8 +473,8 @@ A read-only, HOD-only gallery of the uploaded evidence: `/hod/gallery` links to
 `/hod/gallery/certificates` (competition certificates) and `/hod/gallery/papers`
 (paper files). Each page has a group filter, search, image thumbnails or PDF tiles,
 and a lightbox that previews images and PDFs. It also counts records that still have
-no upload. This feature is additive — no existing page, sheet or navigation was
-changed, so open `/hod/gallery` directly.
+no upload. Reach it from the **Gallery** item in the HOD navigation or directly at
+`/hod/gallery`.
 
 | Piece | Location |
 |---|---|
