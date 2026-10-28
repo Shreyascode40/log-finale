@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { SheetViewer, type SheetSection } from "@/components/viewer/sheet-viewer";
 import { SampleSheet } from "./sample-sheet";
 
@@ -35,7 +36,7 @@ export default function DemoPaperPage({
     return (
       <div className="paper-desk">
         {sections.map((s) => (
-          <div key={s.key}>{s.content}</div>
+          <Fragment key={s.key}>{s.content}</Fragment>
         ))}
       </div>
     );

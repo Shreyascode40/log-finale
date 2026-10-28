@@ -12,6 +12,11 @@ import {
 } from "@/components/paper";
 import { SheetViewer, type CompletionDot } from "@/components/viewer/sheet-viewer";
 import { SaveBadge, type SaveStatus } from "@/components/student/save-badge";
+import {
+  chunkArray,
+  paginateByWeight,
+  wrapPaperText,
+} from "@/lib/paper/pagination";
 import { signedBy } from "@/lib/format";
 import {
   approveReviewAction,
@@ -80,6 +85,18 @@ function ActionButton({
       {children}
     </button>
   );
+}
+
+/**
+ * A review row can grow when a question or a 1,000-character remark wraps.
+ * Estimate its printed line count so six short rows fit on one sheet while a
+ * single long row gets its own continuation sheet instead of being clipped.
+ */
+function reviewRowWeight(row: ReviewScoreRow, questionChars = 40): number {
+  const questionLines = wrapPaperText(row.text, questionChars).length;
+  const remarkLines = wrapPaperText(row.remark, 26).length;
+  const signatureLines = row.signedAt ? 3 : 1;
+  return Math.max(questionLines, remarkLines, signatureLines, 2) + 1;
 }
 
 /**
@@ -203,21 +220,19 @@ export function ReviewSheetScreen({
     }
   }
 
-  const sheet = (
-    <PaperPage>
-      <div className="paper-title">{title}</div>
-
+  function renderReviewTable(chunk: ReviewScoreRow[]) {
+    return (
       <PaperTable style={{ marginTop: "10px" }}>
         <PaperBody>
           <PaperRow>
             <PaperTh width="7%">Sr. No</PaperTh>
-            <PaperTh width={hasDateColumn ? "33%" : "43%"}>Question</PaperTh>
+            <PaperTh width={hasDateColumn ? "29%" : "39%"}>Question</PaperTh>
             {hasDateColumn ? <PaperTh width="10%">Date</PaperTh> : null}
-            <PaperTh width="20%">Remark</PaperTh>
+            <PaperTh width="24%">Remark</PaperTh>
             <PaperTh width="10%">Grade</PaperTh>
             <PaperTh width="20%">Sign of Guide</PaperTh>
           </PaperRow>
-          {rows.map((row) => (
+          {chunk.map((row) => (
             <PaperRow key={row.questionId}>
               <PaperTd style={{ textAlign: "center" }}>{row.questionNo}</PaperTd>
               <PaperTd style={{ fontSize: "11px" }}>{row.text}</PaperTd>
@@ -267,101 +282,164 @@ export function ReviewSheetScreen({
           ))}
         </PaperBody>
       </PaperTable>
+    );
+  }
 
-      <div style={{ marginTop: "14px" }}>
-        <span className="paper-sans" style={{ fontWeight: 700, fontSize: "12px" }}>
-          Remark and Suggestions
-        </span>
-        <div style={{ marginTop: "4px" }}>
-          <Field
-            value={suggestions}
-            onValueChange={draftEditable ? setSuggestions : undefined}
-            readOnly={!draftEditable}
-            lines={3}
-            ariaLabel="Remark and suggestions"
-          />
+  const rowPages = paginateByWeight(
+    rows,
+    (row) => reviewRowWeight(row, hasDateColumn ? 32 : 40),
+    40,
+  );
+  const suggestionLinePages = chunkArray(wrapPaperText(suggestions), 22);
+  const printPageCount = rowPages.length + suggestionLinePages.length;
+
+  function tablePages(totalPages: number) {
+    return rowPages.map((chunk, pageIndex) => (
+      <PaperPage
+        key={`questions-${pageIndex}`}
+        pageNumber={pageIndex + 1}
+        totalPages={totalPages}
+      >
+        <div className="paper-title">
+          {title}
+          {pageIndex > 0 ? " (continued)" : ""}
         </div>
-      </div>
+        {renderReviewTable(chunk)}
+      </PaperPage>
+    ));
+  }
 
-      <div style={{ marginTop: "16px", fontSize: "11px", lineHeight: 1.9 }}>
-        <div>
-          <span className="paper-sans" style={{ fontWeight: 700 }}>
-            Name and Sign of Reviewer (Project Guide{guideName ? `: ${guideName}` : ""}):{" "}
-          </span>
-          {submittedAt ? signedBy(submittedByName ?? guideName, submittedAt) : "________________________"}
-        </div>
-        <div>
-          <span className="paper-sans" style={{ fontWeight: 700 }}>
-            Approved by:{" "}
-          </span>
-          {approvedAt ? signedBy(approvedByName, approvedAt) : "________________________"}
-        </div>
-      </div>
-
-      {unlockReason ? (
-        <p className="paper-serif" style={{ marginTop: "10px", fontSize: "11px" }}>
-          Last unlocked by the HOD: {unlockReason}
-        </p>
-      ) : null}
-
-      {unlockable ? (
-        <div className="print-hide" style={{ marginTop: "10px" }}>
-          <span className="paper-sans" style={{ fontWeight: 700, fontSize: "12px" }}>
-            Reason for unlocking (mandatory)
-          </span>
-          <div style={{ marginTop: "4px" }}>
-            <Field
-              value={reason}
-              onValueChange={setReason}
-              lines={2}
-              ariaLabel="Reason for unlocking"
-            />
+  function renderFooterExtras() {
+    return (
+      <>
+        <div style={{ marginTop: "16px", fontSize: "11px", lineHeight: 1.9 }}>
+          <div>
+            <span className="paper-sans" style={{ fontWeight: 700 }}>
+              Name and Sign of Reviewer (Project Guide{guideName ? `: ${guideName}` : ""}):{" "}
+            </span>
+            {submittedAt ? signedBy(submittedByName ?? guideName, submittedAt) : "________________________"}
+          </div>
+          <div>
+            <span className="paper-sans" style={{ fontWeight: 700 }}>
+              Approved by:{" "}
+            </span>
+            {approvedAt ? signedBy(approvedByName, approvedAt) : "________________________"}
           </div>
         </div>
-      ) : null}
 
-      <div
-        className="print-hide"
-        style={{
-          marginTop: "16px",
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "8px",
-          alignItems: "center",
-          fontFamily: "Arial, Helvetica, sans-serif",
-          fontSize: "12px",
-        }}
-      >
-        <span style={{ fontWeight: 700 }}>Status: {STATUS_LABELS[status] ?? status}</span>
-        {draftEditable ? <ActionButton onClick={() => void save()}>Save draft</ActionButton> : null}
-        {submittable ? (
-          <ActionButton primary onClick={() => void submit()}>
-            Submit (signs every question)
-          </ActionButton>
+        {unlockReason ? (
+          <p className="paper-serif" style={{ marginTop: "10px", fontSize: "11px" }}>
+            Last unlocked by the HOD: {unlockReason}
+          </p>
         ) : null}
-        {approvable ? (
-          <ActionButton primary onClick={() => void approve()}>
-            Approve
-          </ActionButton>
+
+        {unlockable ? (
+          <div className="print-hide" style={{ marginTop: "10px" }}>
+            <span className="paper-sans" style={{ fontWeight: 700, fontSize: "12px" }}>
+              Reason for unlocking (mandatory)
+            </span>
+            <div style={{ marginTop: "4px" }}>
+              <Field
+                value={reason}
+                onValueChange={setReason}
+                lines={2}
+                ariaLabel="Reason for unlocking"
+              />
+            </div>
+          </div>
         ) : null}
-        {unlockable ? <ActionButton onClick={() => void unlock()}>Unlock to draft</ActionButton> : null}
+
+        <div
+          className="print-hide"
+          style={{
+            marginTop: "16px",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "8px",
+            alignItems: "center",
+            fontFamily: "Arial, Helvetica, sans-serif",
+            fontSize: "12px",
+          }}
+        >
+          <span style={{ fontWeight: 700 }}>Status: {STATUS_LABELS[status] ?? status}</span>
+          {draftEditable ? <ActionButton onClick={() => void save()}>Save draft</ActionButton> : null}
+          {submittable ? (
+            <ActionButton primary onClick={() => void submit()}>
+              Submit (signs every question)
+            </ActionButton>
+          ) : null}
+          {approvable ? (
+            <ActionButton primary onClick={() => void approve()}>
+              Approve
+            </ActionButton>
+          ) : null}
+          {unlockable ? <ActionButton onClick={() => void unlock()}>Unlock to draft</ActionButton> : null}
+        </div>
+
+        {(mode === "student" || mode === "hod") && status === "DRAFT" && editable ? (
+          <p className="paper-serif print-hide" style={{ fontSize: "11px", fontStyle: "italic" }}>
+            Waiting for the assigned guide to fill and submit this review.
+          </p>
+        ) : null}
+        {mode === "hod" && status === "SUBMITTED" ? (
+          <p className="paper-serif print-hide" style={{ fontSize: "11px", fontStyle: "italic" }}>
+            Submitted by the guide — approve to lock it, or wait for the guide&rsquo;s approval.
+          </p>
+        ) : null}
+      </>
+    );
+  }
+
+  const printSuggestionPages = suggestionLinePages.map((lines, index, pages) => (
+    <PaperPage
+      key={`suggestions-${index}`}
+      pageNumber={rowPages.length + index + 1}
+      totalPages={printPageCount}
+    >
+      <div className="paper-title">
+        {title} — Remark and Suggestions
+        {index > 0 ? " (continued)" : ""}
       </div>
+      <div style={{ marginTop: "10px" }}>
+        <Field
+          value={lines.join("\n")}
+          readOnly
+          lines={Math.max(lines.length, 3)}
+          ariaLabel={`${title} remark and suggestions${
+            pages.length > 1 ? ` page ${index + 1}` : ""
+          }`}
+        />
+      </div>
+      {index === pages.length - 1 ? renderFooterExtras() : null}
+    </PaperPage>
+  ));
 
-      {(mode === "student" || mode === "hod") && status === "DRAFT" && editable ? (
-        <p className="paper-serif print-hide" style={{ fontSize: "11px", fontStyle: "italic" }}>
-          Waiting for the assigned guide to fill and submit this review.
-        </p>
-      ) : null}
-      {mode === "hod" && status === "SUBMITTED" ? (
-        <p className="paper-serif print-hide" style={{ fontSize: "11px", fontStyle: "italic" }}>
-          Submitted by the guide — approve to lock it, or wait for the guide&rsquo;s approval.
-        </p>
-      ) : null}
+  const printPages = [...tablePages(printPageCount), ...printSuggestionPages];
+
+  const screenSuggestionPage = (
+    <PaperPage
+      flow
+      pageNumber={rowPages.length + 1}
+      totalPages={rowPages.length + 1}
+    >
+      <div className="paper-title">{title} — Remark and Suggestions</div>
+      <div style={{ marginTop: "10px" }}>
+        <Field
+          value={suggestions}
+          onValueChange={draftEditable ? setSuggestions : undefined}
+          readOnly={!draftEditable}
+          lines={Math.max(wrapPaperText(suggestions).length, 3)}
+          ariaLabel="Remark and suggestions"
+        />
+      </div>
+      {renderFooterExtras()}
     </PaperPage>
   );
 
+  const screenPages = [...tablePages(rowPages.length + 1), screenSuggestionPage];
+
   if (print) {
-    return <div className="paper-desk">{sheet}</div>;
+    return <>{printPages}</>;
   }
 
   const answered = rows.filter((row) => row.remark || row.grade).length;
@@ -371,7 +449,15 @@ export function ReviewSheetScreen({
   return (
     <SheetViewer
       heading={groupNo ? `${title} · Group ${groupNo}` : title}
-      sections={[{ key: reviewType, label: title, dot, content: sheet }]}
+      sections={screenPages.map((content, index) => ({
+        key: `${reviewType}-${index}`,
+        label:
+          screenPages.length > 1
+            ? `${title} (${index + 1}/${screenPages.length})`
+            : title,
+        dot,
+        content,
+      }))}
       saveStatus={<SaveBadge status={saveState} message={message} />}
       pdfButton={
         <a

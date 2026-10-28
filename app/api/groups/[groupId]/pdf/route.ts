@@ -30,7 +30,14 @@ export async function GET(request: NextRequest, { params }: { params: { groupId:
     });
   } catch (error) {
     if (error instanceof AppError) {
-      const status = error.code === "PDF_UNAVAILABLE" ? 503 : 403;
+      const status =
+        error.code === "PDF_UNAVAILABLE"
+          ? 503
+          : error.code === "PDF_RENDER_FAILED"
+            ? 502
+            : error.code === "GROUP_NOT_FOUND"
+              ? 404
+              : 403;
       return NextResponse.json({ error: error.message }, { status });
     }
     console.error("pdf generation failed", error);

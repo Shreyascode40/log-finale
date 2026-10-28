@@ -11,6 +11,7 @@ import {
 } from "@/components/paper";
 import { SheetViewer, type CompletionDot } from "@/components/viewer/sheet-viewer";
 import { SaveBadge, type SaveStatus } from "@/components/student/save-badge";
+import { paginateByWeight, wrapPaperText } from "@/lib/paper/pagination";
 import {
   deletePaperAction,
   savePaperAction,
@@ -35,6 +36,16 @@ export type PaperSheetProps = {
 };
 
 const EMPTY = { title: "", conference: "", issn: "", volIssue: "", pageNo: "" };
+
+function paperRowWeight(row: PaperEntry): number {
+  return (
+    Math.max(
+      wrapPaperText(row.title, 28).length,
+      wrapPaperText(row.conference ?? "", 24).length,
+      2,
+    ) + 1
+  );
+}
 
 function ActionButton({
   children,
@@ -205,67 +216,76 @@ export function PaperSheet({ entries, editable, print, printHref }: PaperSheetPr
     </div>
   ) : null;
 
-  const sheet = (
-    <PaperPage>
-      <div className="paper-title">Paper Publication / Presentation</div>
-      {rows.length === 0 ? (
-        <p className="paper-serif" style={{ marginTop: "12px", fontStyle: "italic" }}>
-          No papers yet. At least one technical paper is required.
-        </p>
-      ) : (
-        <PaperTable style={{ marginTop: "10px" }}>
-          <PaperBody>
-            <PaperRow>
-              <PaperTh width="6%">Sr. No</PaperTh>
-              <PaperTh width="26%">Title of Paper</PaperTh>
-              <PaperTh width="20%">Name of Conference</PaperTh>
-              <PaperTh width="12%">ISSN No</PaperTh>
-              <PaperTh width="12%">Vol No and issue</PaperTh>
-              <PaperTh width="10%">Page no</PaperTh>
-              <PaperTh width="14%">Paper file</PaperTh>
-            </PaperRow>
-            {rows.map((row, index) => (
-              <PaperRow key={row.id}>
-                <PaperTd style={{ textAlign: "center" }}>{index + 1}</PaperTd>
-                <PaperTd style={{ fontSize: "11px" }}>{row.title}</PaperTd>
-                <PaperTd style={{ fontSize: "11px" }}>{row.conference ?? ""}</PaperTd>
-                <PaperTd style={{ fontSize: "11px", textAlign: "center" }}>{row.issn ?? ""}</PaperTd>
-                <PaperTd style={{ fontSize: "11px", textAlign: "center" }}>{row.volIssue ?? ""}</PaperTd>
-                <PaperTd style={{ fontSize: "11px", textAlign: "center" }}>{row.pageNo ?? ""}</PaperTd>
-                <PaperTd style={{ fontSize: "10px", textAlign: "center" }}>
-                  {row.fileUrl ? (
-                    <a href={row.fileUrl} target="_blank" rel="noreferrer">
-                      View
-                    </a>
-                  ) : (
-                    "—"
-                  )}
-                  {editable ? (
-                    <span className="print-hide" style={{ display: "block", marginTop: "4px" }}>
-                      <label style={{ display: "block", marginBottom: "4px" }}>
-                        <input
-                          type="file"
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          style={{ fontSize: "10px", maxWidth: "110px" }}
-                          onChange={(e) => void upload(row.id, e.target.files?.[0])}
-                          aria-label={`Upload paper file for ${row.title}`}
-                        />
-                      </label>
-                      <ActionButton onClick={() => startEdit(row)}>Edit</ActionButton>{" "}
-                      <ActionButton onClick={() => void remove(row.id)}>Delete</ActionButton>
-                    </span>
-                  ) : null}
-                </PaperTd>
+  const rowPages = paginateByWeight(rows, paperRowWeight, 40);
+  const pages = rowPages.map((chunk, pageIndex) => {
+    const start = rowPages
+      .slice(0, pageIndex)
+      .reduce((sum, page) => sum + page.length, 0);
+    return (
+      <PaperPage key={pageIndex} pageNumber={pageIndex + 1} totalPages={rowPages.length}>
+        <div className="paper-title">
+          Paper Publication / Presentation
+          {pageIndex > 0 ? " (continued)" : ""}
+        </div>
+        {chunk.length === 0 ? (
+          <p className="paper-serif" style={{ marginTop: "12px", fontStyle: "italic" }}>
+            No papers yet. At least one technical paper is required.
+          </p>
+        ) : (
+          <PaperTable style={{ marginTop: "10px" }}>
+            <PaperBody>
+              <PaperRow>
+                <PaperTh width="6%">Sr. No</PaperTh>
+                <PaperTh width="26%">Title of Paper</PaperTh>
+                <PaperTh width="20%">Name of Conference</PaperTh>
+                <PaperTh width="12%">ISSN No</PaperTh>
+                <PaperTh width="12%">Vol No and issue</PaperTh>
+                <PaperTh width="10%">Page no</PaperTh>
+                <PaperTh width="14%">Paper file</PaperTh>
               </PaperRow>
-            ))}
-          </PaperBody>
-        </PaperTable>
-      )}
-    </PaperPage>
-  );
+              {chunk.map((row, index) => (
+                <PaperRow key={row.id}>
+                  <PaperTd style={{ textAlign: "center" }}>{start + index + 1}</PaperTd>
+                  <PaperTd style={{ fontSize: "11px" }}>{row.title}</PaperTd>
+                  <PaperTd style={{ fontSize: "11px" }}>{row.conference ?? ""}</PaperTd>
+                  <PaperTd style={{ fontSize: "11px", textAlign: "center" }}>{row.issn ?? ""}</PaperTd>
+                  <PaperTd style={{ fontSize: "11px", textAlign: "center" }}>{row.volIssue ?? ""}</PaperTd>
+                  <PaperTd style={{ fontSize: "11px", textAlign: "center" }}>{row.pageNo ?? ""}</PaperTd>
+                  <PaperTd style={{ fontSize: "10px", textAlign: "center" }}>
+                    {row.fileUrl ? (
+                      <a href={row.fileUrl} target="_blank" rel="noreferrer">
+                        View
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                    {editable ? (
+                      <span className="print-hide" style={{ display: "block", marginTop: "4px" }}>
+                        <label style={{ display: "block", marginBottom: "4px" }}>
+                          <input
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            style={{ fontSize: "10px", maxWidth: "110px" }}
+                            onChange={(e) => void upload(row.id, e.target.files?.[0])}
+                            aria-label={`Upload paper file for ${row.title}`}
+                          />
+                        </label>
+                        <ActionButton onClick={() => startEdit(row)}>Edit</ActionButton>{" "}
+                        <ActionButton onClick={() => void remove(row.id)}>Delete</ActionButton>
+                      </span>
+                    ) : null}
+                  </PaperTd>
+                </PaperRow>
+              ))}
+            </PaperBody>
+          </PaperTable>
+        )}
+      </PaperPage>
+    );
+  });
 
   if (print) {
-    return <div className="paper-desk">{sheet}</div>;
+    return <>{pages}</>;
   }
 
   const dot: CompletionDot = rows.length > 0 ? "full" : "empty";
@@ -274,7 +294,15 @@ export function PaperSheet({ entries, editable, print, printHref }: PaperSheetPr
       {formPane}
       <SheetViewer
         heading="Paper publication"
-        sections={[{ key: "papers", label: `Papers (${rows.length})`, dot, content: sheet }]}
+        sections={pages.map((content, index) => ({
+          key: `papers-${index}`,
+          label:
+            pages.length > 1
+              ? `Papers (${index + 1}/${pages.length})`
+              : `Papers (${rows.length})`,
+          dot,
+          content,
+        }))}
         saveStatus={<SaveBadge status={status} message={message} />}
         pdfButton={
           <a className="rounded bg-neutral-900 px-3 py-1 text-white" href={printHref} target="_blank" rel="noreferrer">

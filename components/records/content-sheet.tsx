@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { Field, PaperPage } from "@/components/paper";
 import { SheetViewer, type CompletionDot } from "@/components/viewer/sheet-viewer";
 import { SaveBadge, type SaveStatus } from "@/components/student/save-badge";
+import { splitTextPages } from "@/lib/paper/pagination";
 import { saveContentAction, uploadContentFileAction } from "@/lib/actions/records";
 
 export type ContentSheetProps = {
@@ -83,7 +84,7 @@ export function ContentSheet({ pageType, title, richText, fileUrl, editable, pri
     }
   }
 
-  const sheet = (
+  const screenSheet = (
     <PaperPage flow>
       <div className="paper-title">{title}</div>
       <div style={{ marginTop: "10px" }}>
@@ -124,9 +125,41 @@ export function ContentSheet({ pageType, title, richText, fileUrl, editable, pri
     </PaperPage>
   );
 
+  const printPages = splitTextPages(text).map((lines, index, pages) => (
+    <PaperPage key={index} pageNumber={index + 1} totalPages={pages.length}>
+      <div className="paper-title">
+        {title}
+        {index > 0 ? " (continued)" : ""}
+      </div>
+      <div style={{ marginTop: "10px" }}>
+        <Field
+          value={lines.join("\n")}
+          readOnly
+          lines={Math.max(lines.length, 8)}
+          ariaLabel={`${title}${index > 0 ? ` page ${index + 1}` : ""}`}
+        />
+      </div>
+      {index === pages.length - 1 ? (
+        <div style={{ marginTop: "14px", fontSize: "12px" }}>
+          <span className="paper-sans" style={{ fontWeight: 700 }}>
+            Attached file:{" "}
+          </span>
+          {url ? (
+            <a href={url} target="_blank" rel="noreferrer">
+              View
+            </a>
+          ) : (
+            <span className="paper-serif" style={{ fontStyle: "italic" }}>none</span>
+          )}
+        </div>
+      ) : null}
+    </PaperPage>
+  ));
+
   if (print) {
-    return <div className="paper-desk">{sheet}</div>;
+    return <>{printPages}</>;
   }
+  const sheet = screenSheet;
 
   const dot: CompletionDot = text.trim() || url ? "full" : "empty";
   return (

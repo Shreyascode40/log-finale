@@ -82,7 +82,7 @@ export function ChecklistSheet({ term, title, items, editable, print, printHref 
   );
 
   if (print) {
-    return <div className="paper-desk">{sheet}</div>;
+    return <>{sheet}</>;
   }
 
   const dot: CompletionDot =

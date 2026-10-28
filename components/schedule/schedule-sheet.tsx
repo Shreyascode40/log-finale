@@ -115,7 +115,7 @@ export function ScheduleSheetScreen({ terms, editable, print }: ScheduleSheetScr
   ));
 
   if (print) {
-    return <div className="paper-desk">{sheets}</div>;
+    return <>{sheets}</>;
   }
 
   const sections = terms.map((group, i) => ({

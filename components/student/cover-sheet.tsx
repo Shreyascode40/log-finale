@@ -145,7 +145,7 @@ export function CoverSheetScreen({ initial, guideName, editable, print }: CoverS
   );
 
   if (print) {
-    return <div className="paper-desk">{sheet}</div>;
+    return <>{sheet}</>;
   }
 
   return (

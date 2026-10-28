@@ -146,7 +146,7 @@ export default async function PrintGroupPage({ params }: { params: { groupId: st
   });
 
   return (
-    <div className="paper-desk">
+    <div className="paper-desk" data-pdf-ready="1">
       <CoverSheetScreen
         initial={{
           department: group.department ?? "",

@@ -219,7 +219,7 @@ export function FeedbackSheet({ company, ratings, sealUrl, signedAt, mode, edita
   );
 
   if (print) {
-    return <div className="paper-desk">{sheet}</div>;
+    return <>{sheet}</>;
   }
 
   const answered = SPONSOR_PARAMETERS.filter((param) => marks[param.key]).length;

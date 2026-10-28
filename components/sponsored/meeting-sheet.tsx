@@ -12,6 +12,7 @@ import {
 } from "@/components/paper";
 import { SheetViewer, type CompletionDot } from "@/components/viewer/sheet-viewer";
 import { SaveBadge, type SaveStatus } from "@/components/student/save-badge";
+import { paginateByWeight, wrapPaperText } from "@/lib/paper/pagination";
 import { signedBy } from "@/lib/format";
 import {
   deleteMeetingAction,
@@ -60,6 +61,16 @@ function ActionButton({
     >
       {children}
     </button>
+  );
+}
+
+function meetingRowWeight(row: MeetingRow): number {
+  return (
+    Math.max(
+      wrapPaperText(row.summaryPrev, 26).length,
+      wrapPaperText(row.summaryNext, 26).length,
+      3,
+    ) + 1
   );
 }
 
@@ -186,7 +197,72 @@ export function MeetingSheet({ semester, title, rows, mode, editable, print, pri
     }
   }
 
-  const sheet = (
+  function renderMeetingRows(chunk: MeetingRow[], offset: number) {
+    return chunk.map((row, index) => {
+      const rowNumber = offset + index + 1;
+      const draft = drafts[row.id] ?? { date: row.date, prev: row.summaryPrev, next: row.summaryNext };
+      return (
+        <PaperRow key={row.id}>
+          <PaperTd style={{ textAlign: "center" }}>{rowNumber}</PaperTd>
+          <PaperTd>
+            <Field
+              value={draft.date}
+              onValueChange={canWrite ? (value) => setDraft(row.id, "date", value) : undefined}
+              readOnly={!canWrite}
+              ariaLabel={`Meeting ${rowNumber} date`}
+            />
+          </PaperTd>
+          <PaperTd>
+            <Field
+              value={draft.prev}
+              onValueChange={canWrite ? (value) => setDraft(row.id, "prev", value) : undefined}
+              readOnly={!canWrite}
+              lines={canWrite ? 3 : Math.max(3, wrapPaperText(draft.prev, 26).length)}
+              ariaLabel={`Meeting ${rowNumber} summary since last review`}
+            />
+          </PaperTd>
+          <PaperTd>
+            <Field
+              value={draft.next}
+              onValueChange={canWrite ? (value) => setDraft(row.id, "next", value) : undefined}
+              readOnly={!canWrite}
+              lines={canWrite ? 3 : Math.max(3, wrapPaperText(draft.next, 26).length)}
+              ariaLabel={`Meeting ${rowNumber} summary before next review`}
+            />
+          </PaperTd>
+          <PaperTd style={{ fontSize: "10px", textAlign: "center" }}>
+            {row.studentSign ? (
+              signedBy(row.studentSign.name, row.studentSign.at)
+            ) : canWrite ? (
+              <ActionButton onClick={() => void signStudent(row)}>Sign</ActionButton>
+            ) : (
+              ""
+            )}
+          </PaperTd>
+          <PaperTd style={{ fontSize: "10px", textAlign: "center" }}>
+            {row.guideSign ? (
+              signedBy(row.guideSign.name, row.guideSign.at)
+            ) : canCountersign && row.studentSign ? (
+              <ActionButton onClick={() => void signGuide(row)}>Countersign</ActionButton>
+            ) : (
+              ""
+            )}
+          </PaperTd>
+          <PaperTd style={{ fontSize: "10px", textAlign: "center" }}>
+            {row.externalSignAt ? (
+              `Signed on ${new Date(row.externalSignAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`
+            ) : canWrite ? (
+              <ActionButton onClick={() => void recordExternal(row)}>Record</ActionButton>
+            ) : (
+              ""
+            )}
+          </PaperTd>
+        </PaperRow>
+      );
+    });
+  }
+
+  const screenSheet = (
     <PaperPage flow>
       <div className="paper-title">{title}</div>
       {entries.length === 0 ? (
@@ -205,67 +281,7 @@ export function MeetingSheet({ semester, title, rows, mode, editable, print, pri
               <PaperTh width="13%">Project Guide signature</PaperTh>
               <PaperTh width="12%">External Guide signature</PaperTh>
             </PaperRow>
-            {entries.map((row, index) => {
-              const draft = drafts[row.id] ?? { date: row.date, prev: row.summaryPrev, next: row.summaryNext };
-              return (
-                <PaperRow key={row.id}>
-                  <PaperTd style={{ textAlign: "center" }}>{index + 1}</PaperTd>
-                  <PaperTd>
-                    <Field
-                      value={draft.date}
-                      onValueChange={canWrite ? (value) => setDraft(row.id, "date", value) : undefined}
-                      readOnly={!canWrite}
-                      ariaLabel={`Meeting ${index + 1} date`}
-                    />
-                  </PaperTd>
-                  <PaperTd>
-                    <Field
-                      value={draft.prev}
-                      onValueChange={canWrite ? (value) => setDraft(row.id, "prev", value) : undefined}
-                      readOnly={!canWrite}
-                      lines={3}
-                      ariaLabel={`Meeting ${index + 1} summary since last review`}
-                    />
-                  </PaperTd>
-                  <PaperTd>
-                    <Field
-                      value={draft.next}
-                      onValueChange={canWrite ? (value) => setDraft(row.id, "next", value) : undefined}
-                      readOnly={!canWrite}
-                      lines={3}
-                      ariaLabel={`Meeting ${index + 1} summary before next review`}
-                    />
-                  </PaperTd>
-                  <PaperTd style={{ fontSize: "10px", textAlign: "center" }}>
-                    {row.studentSign ? (
-                      signedBy(row.studentSign.name, row.studentSign.at)
-                    ) : canWrite ? (
-                      <ActionButton onClick={() => void signStudent(row)}>Sign</ActionButton>
-                    ) : (
-                      ""
-                    )}
-                  </PaperTd>
-                  <PaperTd style={{ fontSize: "10px", textAlign: "center" }}>
-                    {row.guideSign ? (
-                      signedBy(row.guideSign.name, row.guideSign.at)
-                    ) : canCountersign && row.studentSign ? (
-                      <ActionButton onClick={() => void signGuide(row)}>Countersign</ActionButton>
-                    ) : (
-                      ""
-                    )}
-                  </PaperTd>
-                  <PaperTd style={{ fontSize: "10px", textAlign: "center" }}>
-                    {row.externalSignAt ? (
-                      `Signed on ${new Date(row.externalSignAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`
-                    ) : canWrite ? (
-                      <ActionButton onClick={() => void recordExternal(row)}>Record</ActionButton>
-                    ) : (
-                      ""
-                    )}
-                  </PaperTd>
-                </PaperRow>
-              );
-            })}
+            {renderMeetingRows(entries, 0)}
           </PaperBody>
         </PaperTable>
       )}
@@ -326,9 +342,45 @@ export function MeetingSheet({ semester, title, rows, mode, editable, print, pri
     </PaperPage>
   );
 
+  const meetingPages = paginateByWeight(entries, meetingRowWeight, 40);
+  const printPages = meetingPages.map((chunk, index, pages) => {
+    const start = meetingPages
+      .slice(0, index)
+      .reduce((sum, page) => sum + page.length, 0);
+    return (
+      <PaperPage key={index} pageNumber={index + 1} totalPages={pages.length}>
+      <div className="paper-title">
+        {title}
+        {index > 0 ? " (continued)" : ""}
+      </div>
+      {chunk.length === 0 ? (
+        <p className="paper-serif" style={{ marginTop: "12px", fontStyle: "italic" }}>
+          No meetings logged yet.
+        </p>
+      ) : (
+        <PaperTable style={{ marginTop: "10px" }}>
+          <PaperBody>
+            <PaperRow>
+              <PaperTh width="6%">Sr. No</PaperTh>
+              <PaperTh width="10%">Date</PaperTh>
+              <PaperTh width="23%">Summary of key events since last review</PaperTh>
+              <PaperTh width="23%">Summary of key events before next review</PaperTh>
+              <PaperTh width="13%">Student sign</PaperTh>
+              <PaperTh width="13%">Project Guide signature</PaperTh>
+              <PaperTh width="12%">External Guide signature</PaperTh>
+            </PaperRow>
+            {renderMeetingRows(chunk, start)}
+          </PaperBody>
+        </PaperTable>
+      )}
+      </PaperPage>
+    );
+  });
+
   if (print) {
-    return <div className="paper-desk">{sheet}</div>;
+    return <>{printPages}</>;
   }
+  const sheet = screenSheet;
 
   const signed = entries.filter((row) => row.guideSign).length;
   const dot: CompletionDot =

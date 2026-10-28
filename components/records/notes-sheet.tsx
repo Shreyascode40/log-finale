@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { Field, PaperPage } from "@/components/paper";
 import { SheetViewer, type CompletionDot } from "@/components/viewer/sheet-viewer";
 import { SaveBadge, type SaveStatus } from "@/components/student/save-badge";
+import { chunkArray, wrapPaperText } from "@/lib/paper/pagination";
 import { deleteNoteAction, saveNoteAction } from "@/lib/actions/records";
 
 export type NoteEntry = {
@@ -46,9 +47,46 @@ function ActionButton({
   );
 }
 
+type NoteBlock = {
+  key: string;
+  label: string;
+  lines: string[];
+};
+
+/** Split long notes into repeated six-line blocks, then group blocks by page. */
+function paginateNotes(rows: NoteEntry[], drafts: Record<string, string>): NoteBlock[][] {
+  const blocks = rows.flatMap((row, index) => {
+    const wrapped = wrapPaperText(drafts[row.id] ?? row.text);
+    return chunkArray(wrapped, 6).map((lines, part) => ({
+      key: `${row.id}-${part}`,
+      label: `Note ${index + 1}${part > 0 ? " (continued)" : ""}`,
+      lines,
+    }));
+  });
+
+  const pages: NoteBlock[][] = [];
+  let page: NoteBlock[] = [];
+  let used = 0;
+  const pageLines = 28;
+
+  for (const block of blocks) {
+    const cost = block.lines.length + 2;
+    if (page.length > 0 && used + cost > pageLines) {
+      pages.push(page);
+      page = [];
+      used = 0;
+    }
+    page.push(block);
+    used += cost;
+  }
+  if (page.length > 0) pages.push(page);
+  return pages.length > 0 ? pages : [[]];
+}
+
 /**
  * Notes sheet (SPEC.md B14). Free text entries; students add, edit and delete
- * their own group's notes. Long notes continue on the flow sheet.
+ * their own group's notes. Long notes continue on numbered sheets with the
+ * college header repeated.
  */
 export function NotesSheet({ notes, editable, print, printHref }: NotesSheetProps) {
   const [rows, setRows] = useState<NoteEntry[]>(notes);
@@ -115,7 +153,7 @@ export function NotesSheet({ notes, editable, print, printHref }: NotesSheetProp
     }
   }
 
-  const sheet = (
+  const screenSheet = (
     <PaperPage flow>
       <div className="paper-title">Notes</div>
       {rows.length === 0 ? (
@@ -175,9 +213,40 @@ export function NotesSheet({ notes, editable, print, printHref }: NotesSheetProp
     </PaperPage>
   );
 
+  const printPages = paginateNotes(rows, drafts).map((blocks, index, pages) => (
+    <PaperPage key={index} pageNumber={index + 1} totalPages={pages.length}>
+      <div className="paper-title">
+        Notes
+        {index > 0 ? " (continued)" : ""}
+      </div>
+      {blocks.length === 0 ? (
+        <p className="paper-serif" style={{ marginTop: "12px", fontStyle: "italic" }}>
+          No notes yet.
+        </p>
+      ) : (
+        blocks.map((block) => (
+          <div key={block.key} style={{ marginTop: "12px" }}>
+            <div className="paper-sans" style={{ fontWeight: 700, fontSize: "12px" }}>
+              {block.label}
+            </div>
+            <div style={{ marginTop: "4px" }}>
+              <Field
+                value={block.lines.join("\n")}
+                readOnly
+                lines={Math.max(block.lines.length, 1)}
+                ariaLabel={block.label}
+              />
+            </div>
+          </div>
+        ))
+      )}
+    </PaperPage>
+  ));
+
   if (print) {
-    return <div className="paper-desk">{sheet}</div>;
+    return <>{printPages}</>;
   }
+  const sheet = screenSheet;
 
   const dot: CompletionDot = rows.length > 0 ? "half" : "empty";
   return (

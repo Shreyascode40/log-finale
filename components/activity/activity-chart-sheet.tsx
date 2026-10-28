@@ -246,7 +246,7 @@ export function ActivityChartScreen({
           {verified} of {rows.length} rows verified by the guide.
         </p>
 
-        {(mode === "student" || mode === "guide") && !editable ? (
+        {!print && (mode === "student" || mode === "guide") && !editable ? (
           <p className="paper-serif" style={{ fontSize: "11px", fontStyle: "italic" }}>
             Activity charts unlock once the HOD approves the group and assigns a guide.
           </p>
@@ -271,7 +271,7 @@ export function ActivityChartScreen({
   const sheet = renderSheet();
 
   if (print) {
-    return <div className="paper-desk">{sheet}</div>;
+    return <>{sheet}</>;
   }
 
   const done = rows.filter((row) => row.status === "GUIDE_VERIFIED").length;

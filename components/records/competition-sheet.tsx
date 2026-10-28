@@ -12,6 +12,7 @@ import {
 } from "@/components/paper";
 import { SheetViewer, type CompletionDot } from "@/components/viewer/sheet-viewer";
 import { SaveBadge, type SaveStatus } from "@/components/student/save-badge";
+import { paginateByWeight, wrapPaperText } from "@/lib/paper/pagination";
 import { COMPETITION_TYPE_LABELS, type CompetitionType } from "@/lib/constants";
 import {
   deleteCompetitionAction,
@@ -37,6 +38,17 @@ export type CompetitionSheetProps = {
 };
 
 const EMPTY = { name: "", date: "", collegeAndLevel: "", type: "", award: "" };
+
+function competitionRowWeight(row: CompetitionEntry): number {
+  return (
+    Math.max(
+      wrapPaperText(row.name, 24).length,
+      wrapPaperText(row.collegeAndLevel ?? "", 24).length,
+      wrapPaperText(row.award ?? "", 16).length,
+      2,
+    ) + 1
+  );
+}
 
 function ActionButton({
   children,
@@ -214,69 +226,78 @@ export function CompetitionSheet({ entries, editable, print, printHref }: Compet
     </div>
   ) : null;
 
-  const sheet = (
-    <PaperPage>
-      <div className="paper-title">Participation in Project Competition</div>
-      {rows.length === 0 ? (
-        <p className="paper-serif" style={{ marginTop: "12px", fontStyle: "italic" }}>
-          No competition entries yet. At least one is required for final-exam eligibility.
-        </p>
-      ) : (
-        <PaperTable style={{ marginTop: "10px" }}>
-          <PaperBody>
-            <PaperRow>
-              <PaperTh width="6%">Sr. No</PaperTh>
-              <PaperTh width="24%">Name of Project Competition</PaperTh>
-              <PaperTh width="10%">Date</PaperTh>
-              <PaperTh width="20%">Name of College and level</PaperTh>
-              <PaperTh width="13%">Type</PaperTh>
-              <PaperTh width="13%">Award / Participation</PaperTh>
-              <PaperTh width="14%">Certificate</PaperTh>
-            </PaperRow>
-            {rows.map((row, index) => (
-              <PaperRow key={row.id}>
-                <PaperTd style={{ textAlign: "center" }}>{index + 1}</PaperTd>
-                <PaperTd style={{ fontSize: "11px" }}>{row.name}</PaperTd>
-                <PaperTd style={{ fontSize: "11px" }}>{row.date ?? ""}</PaperTd>
-                <PaperTd style={{ fontSize: "11px" }}>{row.collegeAndLevel ?? ""}</PaperTd>
-                <PaperTd style={{ fontSize: "11px", textAlign: "center" }}>
-                  {row.type ? (COMPETITION_TYPE_LABELS[row.type as CompetitionType] ?? row.type) : ""}
-                </PaperTd>
-                <PaperTd style={{ fontSize: "11px" }}>{row.award ?? ""}</PaperTd>
-                <PaperTd style={{ fontSize: "10px", textAlign: "center" }}>
-                  {row.certificateUrl ? (
-                    <a href={row.certificateUrl} target="_blank" rel="noreferrer">
-                      View
-                    </a>
-                  ) : (
-                    "—"
-                  )}
-                  {editable ? (
-                    <span className="print-hide" style={{ display: "block", marginTop: "4px" }}>
-                      <label style={{ display: "block", marginBottom: "4px" }}>
-                        <input
-                          type="file"
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          style={{ fontSize: "10px", maxWidth: "110px" }}
-                          onChange={(e) => void upload(row.id, e.target.files?.[0])}
-                          aria-label={`Upload certificate for ${row.name}`}
-                        />
-                      </label>
-                      <ActionButton onClick={() => startEdit(row)}>Edit</ActionButton>{" "}
-                      <ActionButton onClick={() => void remove(row.id)}>Delete</ActionButton>
-                    </span>
-                  ) : null}
-                </PaperTd>
+  const rowPages = paginateByWeight(rows, competitionRowWeight, 40);
+  const pages = rowPages.map((chunk, pageIndex) => {
+    const start = rowPages
+      .slice(0, pageIndex)
+      .reduce((sum, page) => sum + page.length, 0);
+    return (
+      <PaperPage key={pageIndex} pageNumber={pageIndex + 1} totalPages={rowPages.length}>
+        <div className="paper-title">
+          Participation in Project Competition
+          {pageIndex > 0 ? " (continued)" : ""}
+        </div>
+        {chunk.length === 0 ? (
+          <p className="paper-serif" style={{ marginTop: "12px", fontStyle: "italic" }}>
+            No competition entries yet. At least one is required for final-exam eligibility.
+          </p>
+        ) : (
+          <PaperTable style={{ marginTop: "10px" }}>
+            <PaperBody>
+              <PaperRow>
+                <PaperTh width="6%">Sr. No</PaperTh>
+                <PaperTh width="24%">Name of Project Competition</PaperTh>
+                <PaperTh width="10%">Date</PaperTh>
+                <PaperTh width="20%">Name of College and level</PaperTh>
+                <PaperTh width="13%">Type</PaperTh>
+                <PaperTh width="13%">Award / Participation</PaperTh>
+                <PaperTh width="14%">Certificate</PaperTh>
               </PaperRow>
-            ))}
-          </PaperBody>
-        </PaperTable>
-      )}
-    </PaperPage>
-  );
+              {chunk.map((row, index) => (
+                <PaperRow key={row.id}>
+                  <PaperTd style={{ textAlign: "center" }}>{start + index + 1}</PaperTd>
+                  <PaperTd style={{ fontSize: "11px" }}>{row.name}</PaperTd>
+                  <PaperTd style={{ fontSize: "11px" }}>{row.date ?? ""}</PaperTd>
+                  <PaperTd style={{ fontSize: "11px" }}>{row.collegeAndLevel ?? ""}</PaperTd>
+                  <PaperTd style={{ fontSize: "11px", textAlign: "center" }}>
+                    {row.type ? (COMPETITION_TYPE_LABELS[row.type as CompetitionType] ?? row.type) : ""}
+                  </PaperTd>
+                  <PaperTd style={{ fontSize: "11px" }}>{row.award ?? ""}</PaperTd>
+                  <PaperTd style={{ fontSize: "10px", textAlign: "center" }}>
+                    {row.certificateUrl ? (
+                      <a href={row.certificateUrl} target="_blank" rel="noreferrer">
+                        View
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                    {editable ? (
+                      <span className="print-hide" style={{ display: "block", marginTop: "4px" }}>
+                        <label style={{ display: "block", marginBottom: "4px" }}>
+                          <input
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            style={{ fontSize: "10px", maxWidth: "110px" }}
+                            onChange={(e) => void upload(row.id, e.target.files?.[0])}
+                            aria-label={`Upload certificate for ${row.name}`}
+                          />
+                        </label>
+                        <ActionButton onClick={() => startEdit(row)}>Edit</ActionButton>{" "}
+                        <ActionButton onClick={() => void remove(row.id)}>Delete</ActionButton>
+                      </span>
+                    ) : null}
+                  </PaperTd>
+                </PaperRow>
+              ))}
+            </PaperBody>
+          </PaperTable>
+        )}
+      </PaperPage>
+    );
+  });
 
   if (print) {
-    return <div className="paper-desk">{sheet}</div>;
+    return <>{pages}</>;
   }
 
   const dot: CompletionDot = rows.length > 0 ? "full" : "empty";
@@ -285,7 +306,15 @@ export function CompetitionSheet({ entries, editable, print, printHref }: Compet
       {formPane}
       <SheetViewer
         heading="Competition participation"
-        sections={[{ key: "competitions", label: `Competitions (${rows.length})`, dot, content: sheet }]}
+        sections={pages.map((content, index) => ({
+          key: `competitions-${index}`,
+          label:
+            pages.length > 1
+              ? `Competitions (${index + 1}/${pages.length})`
+              : `Competitions (${rows.length})`,
+          dot,
+          content,
+        }))}
         saveStatus={<SaveBadge status={status} message={message} />}
         pdfButton={
           <a className="rounded bg-neutral-900 px-3 py-1 text-white" href={printHref} target="_blank" rel="noreferrer">

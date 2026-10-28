@@ -90,10 +90,30 @@ export async function renderGroupPdf(groupId: string, transport: PdfTransport): 
   try {
     const page = await browser.newPage();
     await page.setExtraHTTPHeaders({ cookie: transport.cookie });
-    await page.goto(`${transport.baseUrl}/print/${groupId}`, {
+    const printUrl = new URL(`/print/${encodeURIComponent(groupId)}`, transport.baseUrl);
+    const response = await page.goto(printUrl.toString(), {
       waitUntil: "networkidle0",
       timeout: 90000,
     });
+    if (!response) {
+      throw new AppError("PDF_RENDER_FAILED", "The print page did not respond.");
+    }
+    if (!response.ok()) {
+      throw new AppError(
+        "PDF_RENDER_FAILED",
+        `The print page returned HTTP ${response.status()}.`,
+      );
+    }
+    const finalUrl = new URL(response.url());
+    if (finalUrl.origin !== printUrl.origin || finalUrl.pathname !== printUrl.pathname) {
+      throw new AppError(
+        "PDF_RENDER_FAILED",
+        "The print page redirected away. The session may have expired; please sign in and try again.",
+      );
+    }
+    if (!(await page.$('[data-pdf-ready="1"]'))) {
+      throw new AppError("PDF_RENDER_FAILED", "The print page did not finish rendering.");
+    }
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,

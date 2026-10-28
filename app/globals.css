@@ -320,6 +320,23 @@
     page-break-after: auto;
   }
 
+  /* A4 is 210 x 297 mm. The screen sheet is 794 x 1123 px, which is slightly
+     larger than true A4 at 96dpi; use the real page box when printing so a
+     sheet cannot overflow the page and create a sliver/blank page. */
+  .paper-page:not(.paper-page--flow) {
+    width: 210mm;
+    height: 297mm;
+    min-height: 297mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .paper-page--flow {
+    width: 210mm;
+    min-height: 297mm;
+    height: auto;
+  }
+
   .paper-table tr,
   .paper-table-row {
     break-inside: avoid;

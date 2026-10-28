@@ -120,7 +120,7 @@ export function MembersSheetScreen({ initial, editable, print }: MembersSheetScr
   ));
 
   if (print) {
-    return <div className="paper-desk">{sheets}</div>;
+    return <>{sheets}</>;
   }
 
   const sections = sheets.map((content, i) => ({

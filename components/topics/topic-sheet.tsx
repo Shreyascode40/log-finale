@@ -471,7 +471,7 @@ export function TopicSheetScreen({
   }
 
   if (print) {
-    return <div className="paper-desk">{rows.map((topic) => renderTopicSheet(topic))}</div>;
+    return <>{rows.map((topic) => renderTopicSheet(topic))}</>;
   }
 
   const sections = rows.map((topic) => ({

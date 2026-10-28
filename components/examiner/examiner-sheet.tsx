@@ -259,7 +259,7 @@ export function ExaminerSheetScreen({
   );
 
   if (print) {
-    return <div className="paper-desk">{sheet}</div>;
+    return <>{sheet}</>;
   }
 
   const answered = ratings.filter(Boolean).length;

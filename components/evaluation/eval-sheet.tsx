@@ -337,7 +337,7 @@ export function EvalSheetScreen({
   );
 
   if (print) {
-    return <div className="paper-desk">{sheet}</div>;
+    return <>{sheet}</>;
   }
 
   const approved = rows.filter((row) => (statuses[row.memberId] ?? row.status) === "APPROVED").length;

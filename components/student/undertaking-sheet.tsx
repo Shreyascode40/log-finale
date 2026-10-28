@@ -128,7 +128,7 @@ export function UndertakingSheetScreen({
   );
 
   if (print) {
-    return <div className="paper-desk">{sheet}</div>;
+    return <>{sheet}</>;
   }
 
   return (
