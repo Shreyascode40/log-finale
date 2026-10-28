@@ -277,6 +277,30 @@
   transform-origin: top center;
 }
 
+/* ---------------------------------------------------- app loading chrome */
+
+.route-progress-bar {
+  width: 38%;
+  animation: route-progress 1.15s ease-in-out infinite;
+}
+
+@keyframes route-progress {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(380%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-progress-bar {
+    width: 100%;
+    animation: none;
+    opacity: 0.65;
+  }
+}
+
 /* ------------------------------------------------------------------ print */
 
 @media print {
