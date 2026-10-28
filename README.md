@@ -13,7 +13,7 @@ UI requirement are in [`AGENTS.md`](./AGENTS.md).
 | Framework | Next.js 14 (App Router), TypeScript strict |
 | Styling | Tailwind CSS; shadcn/ui **outside** the logbook sheets only |
 | Forms / validation | React Hook Form + Zod |
-| Database | PostgreSQL via Supabase (`DATABASE_URL` pooled + `DIRECT_URL` direct) |
+| Database | PostgreSQL via Supabase (`DATABASE_URL` transaction pooler + `DIRECT_URL` session pooler) |
 | Auth | NextAuth (credentials) + bcrypt |
 | Uploads | local disk with `UPLOAD_PROVIDER="local"`, Supabase Storage with `"supabase"` |
 | PDF | Puppeteer (A4), rendering the same Sheet components |
@@ -24,7 +24,7 @@ UI requirement are in [`AGENTS.md`](./AGENTS.md).
 ```bash
 npm install
 cp .env.example .env          # then edit the values (Windows: copy .env.example .env)
-npm run db:migrate            # apply migrations to DATABASE_URL (Supabase Postgres)
+npm run db:migrate            # apply migrations (Prisma uses DIRECT_URL when set)
 npm run db:seed               # seed data (added feature by feature)
 npm run dev                   # http://localhost:3000
 ```
@@ -37,9 +37,25 @@ npm run dev                   # http://localhost:3000
 | `npm run build` / `npm start` | Production build / serve |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm test` | Vitest unit tests |
+| `npm test` | Vitest unit tests (uses `.env.test.local`) |
 | `npm run db:migrate` | `prisma migrate dev` |
+| `npm run db:deploy` | Clear a stale migration lock, then `prisma migrate deploy` |
 | `npm run db:seed` | `tsx prisma/seed.ts` |
+
+### Test database
+
+`npm test` refuses to run against the application database. Create a git-ignored
+`.env.test.local` that points at a **separate schema**:
+
+```bash
+TEST_DATABASE_URL="postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=5&pool_timeout=30&schema=logbook_test"
+TEST_DIRECT_URL="postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres?schema=logbook_test"
+```
+
+The global setup drops and recreates that schema, applies the checked-in migration SQL and
+adds one baseline review template, so every run starts clean. It will not run against
+`public` or against the same URL as `DATABASE_URL`. A local PostgreSQL database works too;
+add the same `?schema=logbook_test` parameter to both test URLs.
 
 ## Demo accounts (after `npm run db:seed`)
 
@@ -186,7 +202,7 @@ each member. One student can complete both sheets for the whole group; a guide o
 
 ### F7 — Schedule sheet
 
-Routes: `/hod/schedule` and `/guide/schedule` (both editable) and `/student/schedule`
+Routes: `/hod/schedule` (editable) and `/guide/schedule`, `/student/schedule`
 (read-only). The two B5 tables
 (**Semester I** and **Semester II**) each render as an A4 sheet with the columns *Sr. No, Description,
 Dates*, followed by the bold-italic notice *"Any changes in schedule will be informed from time to time
@@ -195,20 +211,20 @@ by notice."* The sheet stacks with `?print=1`.
 | Piece | Location |
 |---|---|
 | Service (`getSchedule`, `updateScheduleItem`) | `lib/services/schedule.ts` |
-| Server action (guide/HOD-gated) | `lib/actions/schedule.ts` |
+| Server action (HOD-gated) | `lib/actions/schedule.ts` |
 | Zod schema | `lib/validation/schedule.ts` |
 | Seeded rows (B5) | `prisma/seed-data/schedule.ts` |
 | Shared sheet + pages | `components/schedule/schedule-sheet.tsx`, `app/hod/schedule/page.tsx`, `app/guide/schedule/page.tsx`, `app/student/schedule/page.tsx` |
 
-A **guide (the reviewer) or the HOD** may edit the date cells (the server re-checks the role on every
-save and writes a `SCHEDULE_UPDATE` `AuditLog` row, recording who made the change); students and the
-print view are read-only. Dates are free text so a row can hold a range or a phrase like *"As per
-university schedule"*. Re-running `npm run db:seed` refreshes the descriptions but never overwrites a
-date that has already been set.
+Only the **HOD** may edit the date cells (the server re-checks the role on every save and writes a
+`SCHEDULE_UPDATE` `AuditLog` row, recording who made the change); guides, students and the print view
+are read-only. Dates are free text so a row can hold a range or a phrase like *"As per university
+schedule"*. Re-running `npm run db:seed` refreshes the descriptions but never overwrites a date that
+has already been set.
 
-**Demo flow:** log in as `guide1@apcoer.edu.in` → `/guide/schedule` (or `hod@apcoer.edu.in` →
-`/hod/schedule`), type dates against the Semester I and Semester II rows (they autosave), then log in
-as a student → `/student/schedule` to see the same sheets read-only.
+**Demo flow:** log in as `hod@apcoer.edu.in` → `/hod/schedule`, type dates against the Semester I and
+Semester II rows (they autosave), then log in as a guide or student → `/guide/schedule` or
+`/student/schedule` to see the same sheets read-only.
 
 ### F8 — Topic Finalization
 
@@ -462,7 +478,7 @@ mark-all-read.
 | Inbox actions + bell | `lib/actions/notifications.ts`, `components/app/notifications-bell.tsx` (wired into `AppHeader`) |
 | Email providers | `lib/email.ts` (+ `nodemailer`) |
 
-**Tests:** 127 passing across 19 files (`npm test`), covering every permission rule in the
+**Tests:** 135 tests across 20 files (`npm test`), covering every permission rule in the
 master prompt (student/other-guide/HOD mark writes refused, approval locks, HOD-only unlocks
 with reasons, Topic-2 lock, 5th member, one-group rule, PDF gate) plus the full workflow of
 each feature.
@@ -518,7 +534,7 @@ The old SVG logo and cover placeholders remain in `public/logos/` and `public/co
 
 ```bash
 npm install
-npm run db:migrate            # apply migrations (creates GROUP_READY-safe schema)
+npm run db:deploy             # clear a stale migration lock + prisma migrate deploy
 npm run db:seed               # HOD, guides, students, schedule, templates, questions
 npm run build                 # production build (verified: compiles clean, all routes)
 npm start                     # serve on http://localhost:3000
@@ -536,23 +552,26 @@ Notes:
   `smtp` (+ `SMTP_*`) in production with a real `EMAIL_FROM`.
 - Google Fonts fall back to local serif/sans stacks when the network is unavailable;
   the paper look is preserved by the CSS fallbacks.
+- Uploads: Server Actions accept up to 12 MB (`next.config.mjs`), matching the 2 MB
+  photo and 10 MB document limits enforced in `lib/upload.ts`.
 - Quality gates before every release: `npm run typecheck`, `npm run lint`, `npm test`
-  (127 passing), `npm run build`.
+  (requires `.env.test.local`), `npm run build`.
 
 ## Deploying to Render + Supabase
 
 1. **Supabase project.** Create a project at supabase.com, then open Project Settings →
-   Database and copy two connection strings: the **pooled** one (port `6543`, append
-   `?pgbouncer=true&connection_limit=1`) → `DATABASE_URL`, and the **direct** one
-   (port `5432`) → `DIRECT_URL`.
+   Database and copy two connection strings: the **transaction-pooler** one (port `6543`,
+   append `?pgbouncer=true&connection_limit=5&pool_timeout=30`) → `DATABASE_URL`, and the
+   **session-pooler** one (port `5432`) → `DIRECT_URL`.
 2. **Storage bucket.** Storage → New bucket, name it `logbook-uploads` (or your
    `SUPABASE_BUCKET`), mark it **public**. Copy the project URL → `SUPABASE_URL` and a
    service-role key (Project Settings → API) → `SUPABASE_SERVICE_ROLE_KEY` (server-side
    only — it bypasses storage policies, never commit it).
 3. **Render service.** New → Web Service → point at this repo (or `render.yaml`
    blueprint). Runtime Docker, plan free, health check `/login`. The container start
-   command runs `prisma migrate deploy` on every deploy, so the schema is applied
-   automatically; `CHROME_PATH=/usr/bin/chromium` is baked into the image.
+   command runs `scripts/migrate-deploy.js` on every deploy: it clears a stale idle
+   Prisma advisory lock left by Supabase's session pooler, then runs
+   `prisma migrate deploy`; `CHROME_PATH=/usr/bin/chromium` is baked into the image.
 4. **Env vars.** Set every var in `render.yaml` in the Render dashboard
    (`sync: false` ones especially: `DATABASE_URL`, `DIRECT_URL`, `NEXTAUTH_SECRET`
    or let `generateValue` create it, `SUPABASE_*`, `EMAIL_*`). Set

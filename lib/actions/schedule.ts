@@ -6,8 +6,7 @@ import { updateScheduleItem } from "@/lib/services/schedule";
 
 /**
  * Server action for the Schedule sheet (F7). Re-resolves the current user and
- * re-checks on the server that they are a guide (reviewer) or the HOD before
- * touching the database.
+ * re-checks on the server that they are the HOD before touching the database.
  */
 
 export type ScheduleResult<T = undefined> = { success: true; data: T } | { success: false; error: string };
@@ -16,7 +15,7 @@ export async function updateScheduleItemAction(input: unknown): Promise<Schedule
   try {
     const user = await getCurrentUser();
     if (!user || !canEditSchedule(user)) {
-      throw new AppError("FORBIDDEN", "Only a guide or the Head of Department can edit the schedule");
+      throw new AppError("FORBIDDEN", "Only the Head of Department can edit the schedule");
     }
     await updateScheduleItem({ id: user.id, role: user.role }, input);
     return { success: true, data: undefined };

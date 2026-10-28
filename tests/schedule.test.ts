@@ -5,8 +5,8 @@ import type { Role } from "@/lib/roles";
 import { getSchedule, updateScheduleItem } from "@/lib/services/schedule";
 
 /**
- * F7 — Schedule sheet. Proves the guide/HOD edit rule, audit trail and grouping,
- * against the throwaway test database.
+ * F7 — Schedule sheet. Proves the HOD-only edit rule, audit trail and grouping,
+ * against the test database.
  */
 
 type Actor = { id: string; role: Role };
@@ -84,24 +84,26 @@ describe("schedule editing is HOD-only", () => {
   it("refuses a student", async () => {
     const item = await makeItem("SEMESTER_I");
     await expect(updateScheduleItem(student, { id: item.id, date: "x", note: "" })).rejects.toThrow(
-      /guide or the Head of Department/,
+      /Only the Head of Department/,
     );
     const untouched = await prisma.scheduleItem.findUniqueOrThrow({ where: { id: item.id } });
     expect(untouched.date).toBeNull();
   });
 
-  it("lets a guide (reviewer) edit a date and audits it", async () => {
+  it("refuses a guide", async () => {
     const item = await makeItem("SEMESTER_II");
 
-    await updateScheduleItem(guide, { id: item.id, date: "12 Feb 2026", note: "" });
+    await expect(
+      updateScheduleItem(guide, { id: item.id, date: "12 Feb 2026", note: "" }),
+    ).rejects.toThrow(/Only the Head of Department/);
 
     const updated = await prisma.scheduleItem.findUniqueOrThrow({ where: { id: item.id } });
-    expect(updated.date).toBe("12 Feb 2026");
-
-    const audit = await prisma.auditLog.findFirst({
-      where: { action: "SCHEDULE_UPDATE", entityId: item.id },
-    });
-    expect(audit?.userId).toBe(guide.id);
+    expect(updated.date).toBeNull();
+    expect(
+      await prisma.auditLog.findFirst({
+        where: { action: "SCHEDULE_UPDATE", entityId: item.id },
+      }),
+    ).toBeNull();
   });
 
   it("trims the value, allows clearing, and refuses an unknown row or oversized text", async () => {

@@ -6,10 +6,9 @@ import { SCHEDULE_TERMS, type ScheduleTerm } from "@/lib/constants";
 import type { Role } from "@/lib/roles";
 
 /**
- * Schedule sheet (F7). The two B5 tables are seeded once; a guide (the reviewer)
- * or the HOD edits the date cells and everyone else reads them. The role check
- * runs here on the server — the read-only student UI is never the enforcement
- * point.
+ * Schedule sheet (F7). The two B5 tables are seeded once; only the HOD edits
+ * the date cells and everyone else reads them. The role check runs here on the
+ * server — the read-only UI is never the enforcement point.
  */
 
 export type ScheduleActor = { id: string; role: Role };
@@ -51,12 +50,12 @@ export async function getSchedule(): Promise<ScheduleTermGroup[]> {
 }
 
 function assertEditor(actor: ScheduleActor): void {
-  if (actor.role !== "HOD" && actor.role !== "GUIDE") {
-    throw new AppError("FORBIDDEN", "Only a guide or the Head of Department can edit the schedule");
+  if (actor.role !== "HOD") {
+    throw new AppError("FORBIDDEN", "Only the Head of Department can edit the schedule");
   }
 }
 
-/** Updates one schedule row's date (and note). GUIDE or HOD only. Audited. */
+/** Updates one schedule row's date (and note). HOD only. Audited. */
 export async function updateScheduleItem(actor: ScheduleActor, input: unknown): Promise<void> {
   assertEditor(actor);
 

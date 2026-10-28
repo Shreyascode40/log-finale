@@ -93,9 +93,9 @@ export function canApproveTopic(user: CurrentUser): boolean {
   return user.role === "HOD";
 }
 
-/** The guide (reviewer) and the HOD may edit the global project schedule (F7). */
+/** Only the HOD may edit the global project schedule (SPEC.md B5 / F7). */
 export function canEditSchedule(user: { role: Role }): boolean {
-  return user.role === "HOD" || user.role === "GUIDE";
+  return user.role === "HOD";
 }
 
 /** HOD-only administration helpers (F3). */

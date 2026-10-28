@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:migrate": "prisma migrate dev",
+    "db:deploy": "node scripts/migrate-deploy.js",
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {

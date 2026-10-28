@@ -16,7 +16,10 @@ export async function GET(request: NextRequest, { params }: { params: { groupId:
 
   try {
     const cookie = request.headers.get("cookie") ?? "";
-    const baseUrl = process.env.NEXTAUTH_URL ?? request.nextUrl.origin;
+    const baseUrl =
+      process.env.PDF_BASE_URL?.trim() ||
+      process.env.NEXTAUTH_URL?.trim() ||
+      request.nextUrl.origin;
     const { bytes, fileName } = await generateGroupPdf(
       { id: user.id, role: user.role },
       params.groupId,
