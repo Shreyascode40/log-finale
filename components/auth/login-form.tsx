@@ -9,6 +9,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/auth/password-input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { loginSchema } from "@/lib/validation/auth";
 import { homeForRole } from "@/lib/roles";
@@ -66,7 +67,11 @@ export function LoginForm() {
 
       <div className="space-y-1">
         <Label htmlFor="password">Password</Label>
-        <Input id="password" type="password" autoComplete="current-password" {...register("password")} />
+        <PasswordInput
+          id="password"
+          autoComplete="current-password"
+          {...register("password")}
+        />
         {errors.password ? (
           <p className="text-xs text-destructive">{errors.password.message}</p>
         ) : null}

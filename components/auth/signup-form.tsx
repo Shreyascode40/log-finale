@@ -8,6 +8,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/auth/password-input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { signUpAction } from "@/lib/actions/auth";
 import { signupSchema } from "@/lib/validation/auth";
@@ -101,7 +102,11 @@ export function SignupForm({ verificationRequired }: { verificationRequired: boo
 
       <div className="space-y-1">
         <Label htmlFor="password">Password</Label>
-        <Input id="password" type="password" autoComplete="new-password" {...register("password")} />
+        <PasswordInput
+          id="password"
+          autoComplete="new-password"
+          {...register("password")}
+        />
         {errors.password ? (
           <p className="text-xs text-destructive">{errors.password.message}</p>
         ) : null}
