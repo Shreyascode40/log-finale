@@ -279,6 +279,28 @@
 
 /* ---------------------------------------------------- app loading chrome */
 
+.gallery-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #d4d4d4 transparent;
+}
+
+.gallery-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.gallery-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.gallery-scroll::-webkit-scrollbar-thumb {
+  background: #d4d4d4;
+  border-radius: 9999px;
+}
+
+.gallery-scroll::-webkit-scrollbar-thumb:hover {
+  background: #a3a3a3;
+}
+
 .route-progress-bar {
   width: 38%;
   animation: route-progress 1.15s ease-in-out infinite;

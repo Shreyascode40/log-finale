@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { FileText, ImageOff, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, FileText, ImageOff, Loader2, Search } from "lucide-react";
 
 import type { GalleryData, GalleryItem, GalleryKind } from "@/lib/services/gallery";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -48,6 +48,14 @@ const TABS: { kind: GalleryKind; href: string; label: string }[] = [
 /** Thumbnail: the image itself, a PDF tile, or a fallback when the image fails. */
 function Thumb({ item }: { item: GalleryItem }) {
   const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const imageRef = useRef<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    setFailed(false);
+    setLoaded(false);
+    if (imageRef.current?.complete) setLoaded(true);
+  }, [item.fileUrl]);
 
   if (!item.isImage) {
     return (
@@ -70,15 +78,27 @@ function Thumb({ item }: { item: GalleryItem }) {
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={item.fileUrl}
-      alt={item.title}
-      loading="lazy"
-      decoding="async"
-      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-      onError={() => setFailed(true)}
-    />
+    <div className="relative h-full w-full bg-neutral-50" aria-busy={!loaded}>
+      {!loaded ? (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-neutral-100 text-neutral-500">
+          <Loader2 className="h-6 w-6 animate-spin motion-reduce:animate-none" aria-hidden />
+          <span className="text-[11px]">Loading preview…</span>
+        </div>
+      ) : null}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        ref={imageRef}
+        src={item.fileUrl}
+        alt={item.title}
+        loading="lazy"
+        decoding="async"
+        className={`h-full w-full object-cover transition-[opacity,transform] duration-300 group-hover:scale-[1.02] ${
+          loaded ? "opacity-100" : "opacity-0"
+        }`}
+        onLoad={() => setLoaded(true)}
+        onError={() => setFailed(true)}
+      />
+    </div>
   );
 }
 
@@ -94,7 +114,7 @@ function GalleryCard({ item, onOpen }: { item: GalleryItem; onOpen: (item: Galle
           onOpen(item);
         }
       }}
-      className="group cursor-pointer overflow-hidden transition-colors hover:border-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="group h-full cursor-pointer overflow-hidden transition-colors hover:border-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <div className="relative aspect-[4/3] overflow-hidden border-b bg-neutral-50">
         <Thumb item={item} />
@@ -130,6 +150,8 @@ export function GalleryView({ data }: { data: GalleryData }) {
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState("ALL");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const [scrollState, setScrollState] = useState({ left: false, right: false });
 
   const groups = useMemo(() => {
     const map = new Map<string, string>();
@@ -154,6 +176,44 @@ export function GalleryView({ data }: { data: GalleryData }) {
     ? filtered.findIndex((item) => item.id === selectedId)
     : -1;
   const selected = selectedIndex >= 0 ? filtered[selectedIndex] : null;
+
+  const updateScrollState = useCallback(() => {
+    const node = scrollerRef.current;
+    if (!node) return;
+    const max = node.scrollWidth - node.clientWidth;
+    setScrollState({
+      left: node.scrollLeft > 2,
+      right: max > 2 && node.scrollLeft < max - 2,
+    });
+  }, []);
+
+  useEffect(() => {
+    const node = scrollerRef.current;
+    if (!node) return;
+    updateScrollState();
+    node.addEventListener("scroll", updateScrollState, { passive: true });
+    const observer =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateScrollState);
+    observer?.observe(node);
+    return () => {
+      node.removeEventListener("scroll", updateScrollState);
+      observer?.disconnect();
+    };
+  }, [filtered.length, updateScrollState]);
+
+  useEffect(() => {
+    const node = scrollerRef.current;
+    if (!node) return;
+    node.scrollTo({ left: 0, behavior: "auto" });
+    updateScrollState();
+  }, [data.kind, groupFilter, search, updateScrollState]);
+
+  function scrollGallery(direction: -1 | 1) {
+    const node = scrollerRef.current;
+    if (!node) return;
+    const step = Math.max(280, Math.round(node.clientWidth * 0.8));
+    node.scrollBy({ left: direction * step, behavior: "smooth" });
+  }
 
   useEffect(() => {
     if (!selectedId) return;
@@ -256,9 +316,31 @@ export function GalleryView({ data }: { data: GalleryData }) {
             ))}
           </SelectContent>
         </Select>
-        <p className="text-sm text-muted-foreground">
-          {filtered.length} {filtered.length === 1 ? "file" : "files"}
-        </p>
+        <div className="ml-auto flex items-center gap-2">
+          <p className="text-sm text-muted-foreground">
+            {filtered.length} {filtered.length === 1 ? "file" : "files"}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label={`Scroll ${copy.title.toLowerCase()} left`}
+            onClick={() => scrollGallery(-1)}
+            disabled={!scrollState.left}
+          >
+            <ChevronLeft aria-hidden />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label={`Scroll ${copy.title.toLowerCase()} right`}
+            onClick={() => scrollGallery(1)}
+            disabled={!scrollState.right}
+          >
+            <ChevronRight aria-hidden />
+          </Button>
+        </div>
       </div>
 
       {filtered.length === 0 ? (
@@ -270,9 +352,29 @@ export function GalleryView({ data }: { data: GalleryData }) {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div
+          ref={scrollerRef}
+          role="region"
+          aria-label={`${copy.title} gallery`}
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowLeft") {
+              event.preventDefault();
+              scrollGallery(-1);
+            } else if (event.key === "ArrowRight") {
+              event.preventDefault();
+              scrollGallery(1);
+            }
+          }}
+          className="gallery-scroll flex snap-x snap-mandatory gap-4 overflow-x-auto pb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           {filtered.map((item) => (
-            <GalleryCard key={item.id} item={item} onOpen={(entry) => setSelectedId(entry.id)} />
+            <div
+              key={item.id}
+              className="w-[85vw] max-w-[340px] shrink-0 snap-start sm:w-[300px] lg:w-[320px]"
+            >
+              <GalleryCard item={item} onOpen={(entry) => setSelectedId(entry.id)} />
+            </div>
           ))}
         </div>
       )}
