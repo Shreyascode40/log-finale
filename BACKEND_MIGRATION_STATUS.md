@@ -78,6 +78,14 @@ The API authenticates frontend server-to-server requests with the signed
 `API_INTERNAL_SECRET` identity token, then reloads active user and role data from
 the database. Do not trust a role or user ID supplied in request JSON.
 
+- **Step 7: Authentication boundary** — completed.
+  - Implemented token helpers in `apps/api/src/tokens.ts` (`generateToken`, `hashToken`, `expiresIn`, TTL constants).
+  - Implemented authentication module in `apps/api/src/modules/auth.ts` (`signupStudent`, `authenticate`, `verifyEmail`, `requestPasswordReset`, `resetPassword`, `emailVerificationRequired`, and schemas).
+  - Added `/v1/auth/signup`, `/v1/auth/login`, `/v1/auth/verify-email`, `/v1/auth/forgot-password`, and `/v1/auth/reset-password` endpoints in `apps/api/src/server.ts`, guarded with internal identity HMAC signature verification.
+  - Added `backendSystemApi` and `BackendApiError` in `apps/web/lib/backend-api.ts`.
+  - Refactored `apps/web/lib/services/auth.ts` to delegate entirely to the backend API via `backendSystemApi`, removing direct Prisma, bcrypt, and mailer access from the web layer.
+  - Updated `tests/auth.test.ts` and `tests/admin.test.ts` to verify the backend auth module.
+
 ## Verification status
 
 After the last migration stage:
@@ -93,26 +101,21 @@ After the last migration stage:
 
 ## Work still required
 
-The backend is still only partly separated. A repo-wide search found direct
-Prisma use under `apps/web` in these areas:
+The backend migration is nearly complete. A repo-wide search found direct
+Prisma use under `apps/web` in these remaining areas:
 
-- Services: `auth`.
 - Actions: `group` still queries Prisma for a student's roll number before
   calling the API; that lookup should be removed after the API actor context is
   fully used.
 - Pages/routes: student dashboard, group setup, checklists, competitions,
   cost, notes, papers, PDF, RTM and sponsored pages; the print route.
-- NextAuth credentials/auth services still use Prisma in the web deployment.
 
 ## Next work when resumed
 
-1. **Authentication boundary:** remove NextAuth/auth service database access
-   from Vercel. Keep credentials/session handling secure while having Render
-   verify credentials and issue/validate the identity used by the frontend.
-2. **Remove remaining frontend database usage:** migrate all pages and route
+1. **Remove remaining frontend database usage (Step 8):** migrate all pages and route
    handlers listed above; then search all of `apps/web` for Prisma/database
    calls and remove the web Prisma runtime dependency where possible.
-3. **Deployment and full verification:** ensure Render and Vercel environment
+2. **Deployment and full verification (Step 9):** ensure Render and Vercel environment
    variables, CORS origins, internal secrets, storage/email configuration and
    database URL match the new boundary. Run integration tests against a reachable
    isolated test database, plus typecheck, lint, API build, and deployment smoke

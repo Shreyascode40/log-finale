@@ -4,6 +4,17 @@ import { createHmac } from "node:crypto";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
+export class BackendApiError extends Error {
+  constructor(
+    message: string,
+    public readonly code?: string,
+    public readonly status = 500,
+  ) {
+    super(message);
+    this.name = "BackendApiError";
+  }
+}
+
 function internalToken(userId: string): string {
   const secret = process.env.API_INTERNAL_SECRET;
   if (!secret || secret.length < 32) {
@@ -16,13 +27,10 @@ function internalToken(userId: string): string {
   return `${payload}.${signature}`;
 }
 
-export async function backendApi<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) throw new Error("Authentication required.");
-
+async function backendFetch<T>(userId: string, path: string, init: RequestInit = {}): Promise<T> {
   const baseUrl = process.env.API_BASE_URL ?? "http://localhost:4000";
   const headers = new Headers(init.headers);
-  headers.set("authorization", `Bearer ${internalToken(session.user.id)}`);
+  headers.set("authorization", `Bearer ${internalToken(userId)}`);
   if (init.body && !headers.has("content-type")) {
     headers.set("content-type", "application/json");
   }
@@ -31,7 +39,23 @@ export async function backendApi<T>(path: string, init: RequestInit = {}): Promi
     cache: "no-store",
     headers,
   });
-  const body = await response.json().catch(() => ({})) as { error?: string } & T;
-  if (!response.ok) throw new Error(body.error ?? `Backend request failed (${response.status}).`);
+  const body = (await response.json().catch(() => ({}))) as { error?: string; code?: string } & T;
+  if (!response.ok) {
+    throw new BackendApiError(
+      body.error ?? `Backend request failed (${response.status}).`,
+      body.code,
+      response.status,
+    );
+  }
   return body;
+}
+
+export async function backendSystemApi<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return backendFetch<T>("system", path, init);
+}
+
+export async function backendApi<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error("Authentication required.");
+  return backendFetch<T>(session.user.id, path, init);
 }

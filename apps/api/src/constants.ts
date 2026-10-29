@@ -97,3 +97,6 @@ export type SponsorRating = (typeof SPONSOR_RATINGS)[number];
 
 export const SPONSORED_SEMESTERS = ["SEMESTER_1", "SEMESTER_2"] as const;
 export type SponsoredSemester = (typeof SPONSORED_SEMESTERS)[number];
+
+export const ROLES = ["STUDENT", "GUIDE", "HOD"] as const;
+export type Role = (typeof ROLES)[number];

@@ -149,6 +149,13 @@ import {
   type GalleryActor,
   type GalleryKind,
 } from "./modules/gallery.js";
+import {
+  authenticate,
+  requestPasswordReset,
+  resetPassword,
+  signupStudent,
+  verifyEmail,
+} from "./modules/auth.js";
 
 
 
@@ -372,6 +379,63 @@ async function handleGroupInfoRequest(
   return true;
 }
 
+async function handleAuthRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  method: string,
+  pathname: string,
+): Promise<boolean> {
+  if (!pathname.startsWith("/v1/auth/")) return false;
+
+  const identity = readInternalIdentity(request);
+  if (!identity) {
+    sendJson(response, 401, { error: "Authentication required." });
+    return true;
+  }
+
+  try {
+    if (method === "POST" && pathname === "/v1/auth/signup") {
+      const body = await readJson(request);
+      sendJson(response, 200, await signupStudent(body));
+      return true;
+    }
+    if (method === "POST" && pathname === "/v1/auth/login") {
+      const body = (await readJson(request)) as { email?: string; password?: string };
+      sendJson(response, 200, await authenticate(body.email ?? "", body.password ?? ""));
+      return true;
+    }
+    if (method === "POST" && pathname === "/v1/auth/verify-email") {
+      const body = (await readJson(request)) as { token?: string };
+      sendJson(response, 200, await verifyEmail(body.token ?? ""));
+      return true;
+    }
+    if (method === "POST" && pathname === "/v1/auth/forgot-password") {
+      const body = await readJson(request);
+      sendJson(response, 200, await requestPasswordReset(body));
+      return true;
+    }
+    if (method === "POST" && pathname === "/v1/auth/reset-password") {
+      const body = await readJson(request);
+      await resetPassword(body);
+      sendJson(response, 200, { success: true });
+      return true;
+    }
+
+    sendJson(response, 404, { error: "Not found." });
+    return true;
+  } catch (error) {
+    if (error instanceof ApiDomainError) {
+      sendJson(response, error.status, { error: error.message, code: error.code });
+      return true;
+    }
+    if (error instanceof SyntaxError) {
+      sendJson(response, 400, { error: "Request body must be valid JSON and no larger than 64 KB." });
+      return true;
+    }
+    throw error;
+  }
+}
+
 const scheduleTerms = [
   { term: "SEMESTER_I", label: "Semester I" },
   { term: "SEMESTER_II", label: "Semester II" },
@@ -381,6 +445,8 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
   const method = request.method ?? "GET";
   const pathname = new URL(request.url ?? "/", "http://api.local").pathname;
   const requestUrl = new URL(request.url ?? "/", "http://api.local");
+
+  if (await handleAuthRequest(request, response, method, pathname)) return;
 
   if (pathname.startsWith("/v1/activity-charts")) {
     const user = await authenticatedUser(request);

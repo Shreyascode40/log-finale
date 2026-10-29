@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
-import { authenticate } from "@/lib/services/auth";
+import { authenticate } from "../apps/api/src/modules/auth";
 import type { Role } from "@/lib/roles";
 import {
   approveGroup,

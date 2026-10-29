@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { signupSchema } from "@/lib/validation/auth";
-import { sendEmail } from "@/lib/email";
+import { sendEmail } from "../apps/api/src/email";
 import {
   authenticate,
   emailVerificationRequired,
@@ -9,7 +9,7 @@ import {
   resetPassword,
   signupStudent,
   verifyEmail,
-} from "@/lib/services/auth";
+} from "../apps/api/src/modules/auth";
 import { canAccessPath, homeForRole } from "@/lib/roles";
 import {
   canApproveMarks,
@@ -21,8 +21,8 @@ import {
 
 // The mailer is stubbed: resolving by default (like the noop provider), made
 // to fail per-test for the email-failure paths below.
-vi.mock("@/lib/email", async (importOriginal) => {
-  const mod = await importOriginal<typeof import("@/lib/email")>();
+vi.mock("../apps/api/src/email", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("../apps/api/src/email")>();
   return { ...mod, sendEmail: vi.fn(async () => {}) };
 });
 
