@@ -23,6 +23,7 @@ import {
   updateMemberPhoto,
   type GroupInfoActor,
 } from "./modules/group-info.js";
+import { listRecentActivity } from "./modules/activity.js";
 
 try {
   loadEnvFile(process.env.API_ENV_FILE ?? ".env");
@@ -250,6 +251,22 @@ const scheduleTerms = [
 async function handleApiRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
   const method = request.method ?? "GET";
   const pathname = new URL(request.url ?? "/", "http://api.local").pathname;
+  const requestUrl = new URL(request.url ?? "/", "http://api.local");
+
+  if (method === "GET" && pathname === "/v1/activity") {
+    const user = await authenticatedUser(request);
+    if (!user) {
+      sendJson(response, 401, { error: "Authentication required." });
+      return;
+    }
+    const requestedLimit = Number.parseInt(requestUrl.searchParams.get("limit") ?? "12", 10);
+    const items = await listRecentActivity(
+      { id: user.id, role: user.role },
+      Number.isNaN(requestedLimit) ? 12 : requestedLimit,
+    );
+    sendJson(response, 200, items);
+    return;
+  }
 
   if (method === "GET" && pathname === "/v1/schedule") {
     const items = await prisma.scheduleItem.findMany({ orderBy: { sortOrder: "asc" } });

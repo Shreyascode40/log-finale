@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import type { Role } from "@/lib/roles";
-import { listRecentActivity } from "@/lib/services/activity";
+import { listRecentActivity } from "../apps/api/src/modules/activity";
 
 /**
  * Recent activity feed — proves the role scoping: the HOD sees everything, a
