@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import type { Role } from "@/lib/roles";
-import { getGroupCompletion } from "@/lib/completion/index";
+import { getGroupCompletion } from "../apps/api/src/completion/index";
 import { setPdfPermission } from "@/lib/services/admin";
 
 /**

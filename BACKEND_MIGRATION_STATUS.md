@@ -12,7 +12,7 @@ request; the goal is not complete.
 ## Git state
 
 - Branch: `codex/work-branch`
-- Last pushed commit: `830114a` — `Move sponsored project workflow to backend API`
+- Last pushed commit: `28f7f28` — `Move HOD administration workflow to backend API`
 - Branch was aligned with `origin/codex/work-branch` at the last check.
 - `.commandcode/` is an unrelated, pre-existing untracked directory and was left
   untouched.
@@ -50,9 +50,14 @@ The Render API (`apps/api`) currently owns these feature paths:
     All mutations, authorization checks, and audit logging run in the Render API.
     HOD pages (`/hod/users`, `/hod/assignments`, `/hod/groups`, `/hod/audit`, `/hod`)
     delegate via API client services.
+12. Notifications and completion engine (inbox list/unread counts, mark-all-read,
+    single group completion, batch completions, guide dashboard overview, and
+    HOD dashboard overview). All calculation math, queries, and inbox mutations run
+    in the Render API. Web services and dashboards delegate via internal API tokens.
 
 Relevant pushed commits, newest first:
 
+- `28f7f28` Move HOD administration workflow to backend API
 - `830114a` Move sponsored project workflow to backend API
 - `b04ee9a` Move examiner feedback and records workflow to backend API
 - `1b9c8f2` Move reviews and evaluation marks workflow to backend API
@@ -85,32 +90,27 @@ After the last migration stage:
 The backend is still only partly separated. A repo-wide search found direct
 Prisma use under `apps/web` in these areas:
 
-- Services: `auth`, `gallery`, `notifications`, and `pdf`.
+- Services: `auth`, `gallery`, and `pdf`.
 - Actions: `group` still queries Prisma for a student's roll number before
   calling the API; that lookup should be removed after the API actor context is
   fully used.
 - Pages/routes: student dashboard, group setup, checklists, competitions,
   cost, notes, papers, PDF, RTM and sponsored pages; the print route;
   private file/PDF routes and local media route.
-- Completion code: `apps/web/lib/completion/index.ts` and `sections.ts` still
-  query Prisma. API copies exist for topic/activity/review/eval checks, but the frontend
-  completion engine and dashboard paths have not yet been switched over.
 - NextAuth credentials/auth services still use Prisma in the web deployment.
 
 ## Next work when resumed
 
-1. **Notifications and completion:** move inbox read/mark-read paths and all
-   remaining triggers; make Vercel dashboards call the API completion endpoints.
-2. **PDF and files:** move PDF eligibility checks, generation/export records and
+1. **PDF and files:** move PDF eligibility checks, generation/export records and
    file ownership/database access behind Render. Preserve the shared Sheet
    rendering behavior and secure private-file downloads.
-3. **Authentication boundary:** remove NextAuth/auth service database access
+2. **Authentication boundary:** remove NextAuth/auth service database access
    from Vercel. Keep credentials/session handling secure while having Render
    verify credentials and issue/validate the identity used by the frontend.
-4. **Remove remaining frontend database usage:** migrate all pages and route
+3. **Remove remaining frontend database usage:** migrate all pages and route
    handlers listed above; then search all of `apps/web` for Prisma/database
    calls and remove the web Prisma runtime dependency where possible.
-5. **Deployment and full verification:** ensure Render and Vercel environment
+4. **Deployment and full verification:** ensure Render and Vercel environment
    variables, CORS origins, internal secrets, storage/email configuration and
    database URL match the new boundary. Run integration tests against a reachable
    isolated test database, plus typecheck, lint, API build, and deployment smoke

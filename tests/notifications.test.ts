@@ -6,7 +6,7 @@ import { assignGuide } from "@/lib/services/admin";
 import { confirmEntry, verifyEntry } from "../apps/api/src/modules/activity-chart";
 import { decideTopic, scoreTopic } from "../apps/api/src/modules/topic";
 import { approveReview, submitReview, unlockReview } from "../apps/api/src/modules/review";
-import { listForUser, markAllRead, notifyIfReadyForPdf } from "@/lib/services/notifications";
+import { listForUser, markAllRead, notifyIfReadyForPdf } from "../apps/api/src/modules/notifications";
 
 /**
  * F17 — Notifications. Proves the A6 events land in the right inboxes

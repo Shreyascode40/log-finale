@@ -128,6 +128,14 @@ import {
   updateGuide,
   type AdminActor,
 } from "./modules/admin.js";
+import { listForUser, markAllRead } from "./modules/notifications.js";
+import {
+  getGroupCompletion,
+  getGroupCompletions,
+  getGuideOverview,
+  getHodOverview,
+} from "./completion/index.js";
+
 
 
 
@@ -795,6 +803,79 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
         sendJson(response, 200, await listAuditLogs(actor, query));
       } else if (method === "GET" && pathname === "/v1/admin/stats") {
         sendJson(response, 200, await getHodDashboardStats(actor));
+      } else {
+        sendJson(response, 404, { error: "Not found." });
+      }
+    } catch (error) {
+      if (error instanceof ApiDomainError) {
+        sendJson(response, error.status, { error: error.message, code: error.code });
+        return;
+      }
+      if (error instanceof SyntaxError) {
+        sendJson(response, 400, { error: "Request body must be valid JSON and no larger than 64 KB." });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (pathname.startsWith("/v1/notifications")) {
+    const user = await authenticatedUser(request);
+    if (!user) {
+      sendJson(response, 401, { error: "Authentication required." });
+      return;
+    }
+
+    try {
+      if (method === "GET" && pathname === "/v1/notifications") {
+        const limit = Number.parseInt(requestUrl.searchParams.get("limit") ?? "20", 10);
+        sendJson(response, 200, await listForUser(user.id, Number.isNaN(limit) ? 20 : limit));
+      } else if (method === "POST" && pathname === "/v1/notifications/mark-read") {
+        await markAllRead(user.id);
+        sendJson(response, 200, { success: true });
+      } else {
+        sendJson(response, 404, { error: "Not found." });
+      }
+    } catch (error) {
+      if (error instanceof ApiDomainError) {
+        sendJson(response, error.status, { error: error.message, code: error.code });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (pathname.startsWith("/v1/completion")) {
+    const user = await authenticatedUser(request);
+    if (!user) {
+      sendJson(response, 401, { error: "Authentication required." });
+      return;
+    }
+
+    const groupMatch = pathname.match(/^\/v1\/completion\/groups\/([^/]+)$/);
+
+    try {
+      if (method === "GET" && groupMatch) {
+        const completion = await getGroupCompletion(decodeURIComponent(groupMatch[1]!));
+        sendJson(response, 200, completion);
+      } else if (method === "POST" && pathname === "/v1/completion/batch") {
+        const body = (await readJson(request)) as { groupIds?: string[] };
+        const map = await getGroupCompletions(body.groupIds ?? []);
+        sendJson(response, 200, Object.fromEntries(map));
+      } else if (method === "GET" && pathname === "/v1/completion/guide-overview") {
+        if (user.role !== "GUIDE") {
+          sendJson(response, 403, { error: "Only guides can view the guide overview." });
+          return;
+        }
+        sendJson(response, 200, await getGuideOverview(user.id));
+      } else if (method === "GET" && pathname === "/v1/completion/hod-overview") {
+        if (user.role !== "HOD") {
+          sendJson(response, 403, { error: "Only the Head of Department can view the HOD overview." });
+          return;
+        }
+        sendJson(response, 200, await getHodOverview());
       } else {
         sendJson(response, 404, { error: "Not found." });
       }
