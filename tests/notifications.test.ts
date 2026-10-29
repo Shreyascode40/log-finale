@@ -4,7 +4,7 @@ import { hashPassword } from "@/lib/password";
 import type { Role } from "@/lib/roles";
 import { assignGuide } from "@/lib/services/admin";
 import { confirmEntry, verifyEntry } from "@/lib/services/activity-chart";
-import { decideTopic, scoreTopic } from "@/lib/services/topic";
+import { decideTopic, scoreTopic } from "../apps/api/src/modules/topic";
 import { approveReview, submitReview, unlockReview } from "@/lib/services/review";
 import { listForUser, markAllRead, notifyIfReadyForPdf } from "@/lib/services/notifications";
 

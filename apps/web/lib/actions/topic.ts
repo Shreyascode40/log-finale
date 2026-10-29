@@ -20,6 +20,7 @@ async function topicActor(): Promise<TopicActor> {
 
 function toError(error: unknown): string {
   if (error instanceof AppError) return error.message;
+  if (error instanceof Error && error.message) return error.message;
   console.error("topic action failed", error);
   return "Something went wrong. Please try again.";
 }

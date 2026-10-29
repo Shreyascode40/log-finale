@@ -12,10 +12,12 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "nodemailer": "^7.0.13",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.2",
     "prisma": "^5.22.0",
     "tsx": "^4.23.15",
     "typescript": "^5"

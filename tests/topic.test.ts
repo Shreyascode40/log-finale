@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import type { Role } from "@/lib/roles";
-import { decideTopic, getTopicSheet, saveTopic, scoreTopic } from "@/lib/services/topic";
+import { decideTopic, getTopicSheet, saveTopic, scoreTopic } from "../apps/api/src/modules/topic";
 
 /**
  * F8 — Topic Finalization. Proves the guide-only scoring, the HOD decision, the
@@ -163,7 +163,7 @@ describe("topic scoring (assigned guide only)", () => {
     expect(topic.feasibility).toBe(6);
     expect(topic.guideRecommendation).toBe("YES");
 
-    const sheet = await getTopicSheet(group.id);
+    const sheet = await getTopicSheet(guide, group.id);
     const t1 = sheet.topics.find((t) => t.topicNo === 1)!;
     expect(t1.scoredByName).toBe(guide.name);
     expect(t1.scoredAt).not.toBeNull();
@@ -264,7 +264,7 @@ describe("HOD decision", () => {
     await scoreTopic(guide, goodScores(group.id, 1));
     await decideTopic(hod, { groupId: group.id, topicNo: 1, decision: "APPROVED" });
 
-    const sheet = await getTopicSheet(group.id);
+    const sheet = await getTopicSheet(hod, group.id);
     const t1 = sheet.topics.find((t) => t.topicNo === 1)!;
     expect(t1.status).toBe("APPROVED");
     expect(t1.approvedByName).toBe(hod.name);

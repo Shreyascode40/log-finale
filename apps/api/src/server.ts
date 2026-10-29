@@ -24,6 +24,16 @@ import {
   type GroupInfoActor,
 } from "./modules/group-info.js";
 import { listRecentActivity } from "./modules/activity.js";
+import {
+  decideTopic,
+  getStudentTopicGroupId,
+  getTopicSheet,
+  listGuideTopicGroups,
+  listTopicQueue,
+  saveTopic,
+  scoreTopic,
+  type TopicActor,
+} from "./modules/topic.js";
 
 try {
   loadEnvFile(process.env.API_ENV_FILE ?? ".env");
@@ -252,6 +262,49 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
   const method = request.method ?? "GET";
   const pathname = new URL(request.url ?? "/", "http://api.local").pathname;
   const requestUrl = new URL(request.url ?? "/", "http://api.local");
+
+  if (pathname.startsWith("/v1/topics")) {
+    const user = await authenticatedUser(request);
+    if (!user) {
+      sendJson(response, 401, { error: "Authentication required." });
+      return;
+    }
+    const actor: TopicActor = { id: user.id, role: user.role };
+    try {
+      if (method === "GET" && pathname === "/v1/topics/student-group") {
+        sendJson(response, 200, await getStudentTopicGroupId(actor));
+      } else if (method === "GET" && pathname === "/v1/topics/guide-groups") {
+        sendJson(response, 200, await listGuideTopicGroups(actor));
+      } else if (method === "GET" && pathname === "/v1/topics/hod-queue") {
+        sendJson(response, 200, await listTopicQueue(actor));
+      } else if (method === "GET" && (pathname.match(/^\/v1\/topics\/group\/[^/]+$/))) {
+        const groupId = decodeURIComponent(pathname.split("/").at(-1)!);
+        sendJson(response, 200, await getTopicSheet(actor, groupId));
+      } else if (method === "POST" && pathname === "/v1/topics/save") {
+        await saveTopic(actor, await readJson(request));
+        sendJson(response, 200, { success: true });
+      } else if (method === "POST" && pathname === "/v1/topics/score") {
+        await scoreTopic(actor, await readJson(request));
+        sendJson(response, 200, { success: true });
+      } else if (method === "POST" && pathname === "/v1/topics/decide") {
+        await decideTopic(actor, await readJson(request));
+        sendJson(response, 200, { success: true });
+      } else {
+        sendJson(response, 404, { error: "Not found." });
+      }
+    } catch (error) {
+      if (error instanceof ApiDomainError) {
+        sendJson(response, error.status, { error: error.message, code: error.code });
+        return;
+      }
+      if (error instanceof SyntaxError) {
+        sendJson(response, 400, { error: "Request body must be valid JSON and no larger than 64 KB." });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
 
   if (method === "GET" && pathname === "/v1/activity") {
     const user = await authenticatedUser(request);
