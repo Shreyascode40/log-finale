@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import type { Role } from "@/lib/roles";
-import { checkPdfGate } from "@/lib/services/pdf";
+import { checkPdfGate } from "../apps/api/src/modules/pdf";
 
 /**
  * F16 — PDF gate. Proves the server re-checks role, completion and HOD

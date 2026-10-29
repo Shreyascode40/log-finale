@@ -12,7 +12,7 @@ request; the goal is not complete.
 ## Git state
 
 - Branch: `codex/work-branch`
-- Last pushed commit: `28f7f28` — `Move HOD administration workflow to backend API`
+- Last pushed commit: `111af60` — `Move notifications and completion engine to backend API`
 - Branch was aligned with `origin/codex/work-branch` at the last check.
 - `.commandcode/` is an unrelated, pre-existing untracked directory and was left
   untouched.
@@ -54,9 +54,15 @@ The Render API (`apps/api`) currently owns these feature paths:
     single group completion, batch completions, guide dashboard overview, and
     HOD dashboard overview). All calculation math, queries, and inbox mutations run
     in the Render API. Web services and dashboards delegate via internal API tokens.
+13. PDF, files, and gallery workflow (PDF gate check, export records, group locking,
+    archived PDF access authorization, private upload access checks, media PDF
+    authorization, and HOD media gallery summaries and lists). All authorization,
+    database lookups, audits, and records run in the Render API. Web services and
+    download routes delegate via internal API tokens.
 
 Relevant pushed commits, newest first:
 
+- `111af60` Move notifications and completion engine to backend API
 - `28f7f28` Move HOD administration workflow to backend API
 - `830114a` Move sponsored project workflow to backend API
 - `b04ee9a` Move examiner feedback and records workflow to backend API
@@ -90,27 +96,23 @@ After the last migration stage:
 The backend is still only partly separated. A repo-wide search found direct
 Prisma use under `apps/web` in these areas:
 
-- Services: `auth`, `gallery`, and `pdf`.
+- Services: `auth`.
 - Actions: `group` still queries Prisma for a student's roll number before
   calling the API; that lookup should be removed after the API actor context is
   fully used.
 - Pages/routes: student dashboard, group setup, checklists, competitions,
-  cost, notes, papers, PDF, RTM and sponsored pages; the print route;
-  private file/PDF routes and local media route.
+  cost, notes, papers, PDF, RTM and sponsored pages; the print route.
 - NextAuth credentials/auth services still use Prisma in the web deployment.
 
 ## Next work when resumed
 
-1. **PDF and files:** move PDF eligibility checks, generation/export records and
-   file ownership/database access behind Render. Preserve the shared Sheet
-   rendering behavior and secure private-file downloads.
-2. **Authentication boundary:** remove NextAuth/auth service database access
+1. **Authentication boundary:** remove NextAuth/auth service database access
    from Vercel. Keep credentials/session handling secure while having Render
    verify credentials and issue/validate the identity used by the frontend.
-3. **Remove remaining frontend database usage:** migrate all pages and route
+2. **Remove remaining frontend database usage:** migrate all pages and route
    handlers listed above; then search all of `apps/web` for Prisma/database
    calls and remove the web Prisma runtime dependency where possible.
-4. **Deployment and full verification:** ensure Render and Vercel environment
+3. **Deployment and full verification:** ensure Render and Vercel environment
    variables, CORS origins, internal secrets, storage/email configuration and
    database URL match the new boundary. Run integration tests against a reachable
    isolated test database, plus typecheck, lint, API build, and deployment smoke

@@ -70,6 +70,13 @@ export const CHECKLIST_ITEMS: Record<"TERM_I" | "TERM_II", readonly string[]> = 
 export const COMPETITION_TYPES = ["POSTER", "DEMO", "PAPER_PRESENTATION"] as const;
 export type CompetitionType = (typeof COMPETITION_TYPES)[number];
 
+export const COMPETITION_TYPE_LABELS: Record<CompetitionType, string> = {
+  POSTER: "Poster",
+  DEMO: "Demo",
+  PAPER_PRESENTATION: "Paper Presentation",
+};
+
+
 export const RECORD_CONTENT_TYPES = ["RTM", "COST"] as const;
 export type RecordContentType = (typeof RECORD_CONTENT_TYPES)[number];
 

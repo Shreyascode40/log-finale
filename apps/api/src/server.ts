@@ -135,6 +135,21 @@ import {
   getGuideOverview,
   getHodOverview,
 } from "./completion/index.js";
+import {
+  authorizeFileAccess,
+  authorizeMediaPdf,
+  checkPdfGate,
+  getPdfExport,
+  recordPdfExport,
+  type PdfActor,
+} from "./modules/pdf.js";
+import {
+  getGalleryData,
+  getGallerySummary,
+  type GalleryActor,
+  type GalleryKind,
+} from "./modules/gallery.js";
+
 
 
 
@@ -886,6 +901,96 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
       }
       if (error instanceof SyntaxError) {
         sendJson(response, 400, { error: "Request body must be valid JSON and no larger than 64 KB." });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (pathname.startsWith("/v1/pdf")) {
+    const user = await authenticatedUser(request);
+    if (!user) {
+      sendJson(response, 401, { error: "Authentication required." });
+      return;
+    }
+    const actor: PdfActor = { id: user.id, role: user.role };
+    const gateMatch = pathname.match(/^\/v1\/pdf\/groups\/([^/]+)\/gate$/);
+    const exportMatch = pathname.match(/^\/v1\/pdf\/exports\/([^/]+)$/);
+
+    try {
+      if (method === "GET" && gateMatch) {
+        sendJson(response, 200, await checkPdfGate(actor, decodeURIComponent(gateMatch[1]!)));
+      } else if (method === "POST" && pathname === "/v1/pdf/exports") {
+        const body = (await readJson(request)) as { groupId: string; storageRef: string };
+        sendJson(response, 200, await recordPdfExport(actor, body.groupId, body.storageRef));
+      } else if (method === "GET" && exportMatch) {
+        sendJson(response, 200, await getPdfExport(actor, decodeURIComponent(exportMatch[1]!)));
+      } else {
+        sendJson(response, 404, { error: "Not found." });
+      }
+    } catch (error) {
+      if (error instanceof ApiDomainError) {
+        sendJson(response, error.status, { error: error.message, code: error.code });
+        return;
+      }
+      if (error instanceof SyntaxError) {
+        sendJson(response, 400, { error: "Request body must be valid JSON and no larger than 64 KB." });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (pathname.startsWith("/v1/files")) {
+    const user = await authenticatedUser(request);
+    if (!user) {
+      sendJson(response, 401, { error: "Authentication required." });
+      return;
+    }
+    const actor: PdfActor = { id: user.id, role: user.role };
+
+    try {
+      if (method === "GET" && pathname === "/v1/files/authorize") {
+        const fileUrl = requestUrl.searchParams.get("fileUrl") ?? "";
+        sendJson(response, 200, await authorizeFileAccess(actor, fileUrl));
+      } else if (method === "GET" && pathname === "/v1/files/authorize-media-pdf") {
+        const fileUrl = requestUrl.searchParams.get("fileUrl") ?? "";
+        sendJson(response, 200, await authorizeMediaPdf(actor, fileUrl));
+      } else {
+        sendJson(response, 404, { error: "Not found." });
+      }
+    } catch (error) {
+      if (error instanceof ApiDomainError) {
+        sendJson(response, error.status, { error: error.message, code: error.code });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (pathname.startsWith("/v1/gallery")) {
+    const user = await authenticatedUser(request);
+    if (!user) {
+      sendJson(response, 401, { error: "Authentication required." });
+      return;
+    }
+    const actor: GalleryActor = { id: user.id, role: user.role };
+    const kindMatch = pathname.match(/^\/v1\/gallery\/([^/]+)$/);
+
+    try {
+      if (method === "GET" && pathname === "/v1/gallery/summary") {
+        sendJson(response, 200, await getGallerySummary(actor));
+      } else if (method === "GET" && kindMatch) {
+        sendJson(response, 200, await getGalleryData(actor, decodeURIComponent(kindMatch[1]!) as GalleryKind));
+      } else {
+        sendJson(response, 404, { error: "Not found." });
+      }
+    } catch (error) {
+      if (error instanceof ApiDomainError) {
+        sendJson(response, error.status, { error: error.message, code: error.code });
         return;
       }
       throw error;

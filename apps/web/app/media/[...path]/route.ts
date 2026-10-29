@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { prisma } from "@/lib/prisma";
-import { canViewGroup, getCurrentUser } from "@/lib/permissions";
+import { backendApi } from "@/lib/backend-api";
 import { uploadRoot } from "@/lib/upload";
 
 /**
@@ -31,42 +30,26 @@ const CONTENT_TYPES: Record<string, string> = {
 async function authorizePdf(pathParts: string[]): Promise<NextResponse | null> {
   if (pathParts[0]?.toLowerCase() !== "pdf") return null;
 
-  const user = await getCurrentUser();
-  if (!user) {
-    return new NextResponse("Please sign in to download this PDF.", { status: 401 });
-  }
-
   const fileName = pathParts.slice(1).join("/");
   if (!fileName || fileName.includes("/")) {
     return new NextResponse("Not found", { status: 404 });
   }
 
-  const pdf = await prisma.pdfExport.findFirst({
-    where: { fileUrl: `/media/pdf/${fileName}` },
-    select: {
-      group: {
-        select: {
-          guideId: true,
-          pdfPermission: true,
-          members: { select: { userId: true } },
-        },
-      },
-    },
-  });
-  if (!pdf) {
-    return new NextResponse("Not found", { status: 404 });
+  const fileUrl = `/media/pdf/${fileName}`;
+  try {
+    await backendApi<{ allowed: boolean }>(
+      `/v1/files/authorize-media-pdf?fileUrl=${encodeURIComponent(fileUrl)}`,
+    );
+    return null;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Access denied";
+    const status = message.includes("Authentication required")
+      ? 401
+      : message.includes("Not found")
+        ? 404
+        : 403;
+    return new NextResponse(message, { status });
   }
-
-  const canView = canViewGroup(user, {
-    guideId: pdf.group.guideId,
-    members: pdf.group.members,
-  });
-  const permissionOpen = pdf.group.pdfPermission || user.role === "HOD";
-  if (!canView || !permissionOpen) {
-    return new NextResponse("You cannot download this PDF.", { status: 403 });
-  }
-
-  return null;
 }
 
 export async function GET(_request: Request, { params }: { params: { path: string[] } }) {

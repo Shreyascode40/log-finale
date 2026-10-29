@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
-import { getGalleryData, getGallerySummary, isImageFile } from "@/lib/services/gallery";
+import { getGalleryData, getGallerySummary, isImageFile } from "../apps/api/src/modules/gallery";
 
 /**
  * HOD media gallery: file detection, group/guide mapping, newest-first order,
