@@ -9,7 +9,7 @@ import {
   updateCover,
   updateMember,
   updateMemberPhoto,
-} from "@/lib/services/group-info";
+} from "../apps/api/src/modules/group-info";
 import { createGroup, joinByCode } from "../apps/api/src/modules/groups";
 
 const createdEmails: string[] = [];
@@ -201,7 +201,7 @@ describe("member photo upload", () => {
     const memberId = await memberIdOf(groupId, creator.id);
 
     const file = new File([new Uint8Array(1024)], "photo.png", { type: "image/png" });
-    const { url } = await updateMemberPhoto(creator, memberId, file);
+    const { url } = await updateMemberPhoto(creator, memberId, file.type, Buffer.from(await file.arrayBuffer()));
     uploadedUrls.push(url);
 
     expect(url).toMatch(/^\/media\/group-members\/.+\.png$/);
@@ -215,7 +215,7 @@ describe("member photo upload", () => {
     const memberId = await memberIdOf(groupId, creator.id);
 
     const file = new File([new Uint8Array(10)], "notes.pdf", { type: "application/pdf" });
-    await expect(updateMemberPhoto(creator, memberId, file)).rejects.toThrow(/JPG or PNG/);
+    await expect(updateMemberPhoto(creator, memberId, file.type, Buffer.from(await file.arrayBuffer()))).rejects.toThrow(/JPG or PNG/);
   });
 
   it("rejects a photo larger than 2 MB", async () => {
@@ -224,6 +224,6 @@ describe("member photo upload", () => {
     const memberId = await memberIdOf(groupId, creator.id);
 
     const file = new File([new Uint8Array(MAX_PHOTO_BYTES + 1)], "big.png", { type: "image/png" });
-    await expect(updateMemberPhoto(creator, memberId, file)).rejects.toThrow(/2 MB/);
+    await expect(updateMemberPhoto(creator, memberId, file.type, Buffer.from(await file.arrayBuffer()))).rejects.toThrow(/2 MB/);
   });
 });

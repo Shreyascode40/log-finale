@@ -16,6 +16,13 @@ import {
   type GroupActor,
 } from "./modules/groups.js";
 import { acceptUndertaking, acknowledgeRules, type SignoffActor } from "./modules/signoff.js";
+import {
+  getStudentGroupInfo,
+  updateCover,
+  updateMember,
+  updateMemberPhoto,
+  type GroupInfoActor,
+} from "./modules/group-info.js";
 
 try {
   loadEnvFile(process.env.API_ENV_FILE ?? ".env");
@@ -68,6 +75,18 @@ async function readJson(request: IncomingMessage): Promise<unknown> {
     chunks.push(buffer);
   }
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
+
+async function readBytes(request: IncomingMessage, maxBytes: number): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += buffer.length;
+    if (size > maxBytes) throw new ApiDomainError("FILE_TOO_LARGE", "Photo must be 2 MB or smaller", 413);
+    chunks.push(buffer);
+  }
+  return Buffer.concat(chunks);
 }
 
 async function authenticatedUser(request: IncomingMessage) {
@@ -177,6 +196,52 @@ async function handleSignoffRequest(
   return true;
 }
 
+async function handleGroupInfoRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  method: string,
+  pathname: string,
+): Promise<boolean> {
+  const photoMatch = pathname.match(/^\/v1\/student\/group-info\/members\/([^/]+)\/photo$/);
+  const route = pathname === "/v1/student/group-info" || pathname.startsWith("/v1/student/group-info/");
+  if (!route) return false;
+  const user = await authenticatedUser(request);
+  if (!user) {
+    sendJson(response, 401, { error: "Authentication required." });
+    return true;
+  }
+  const actor: GroupInfoActor = { id: user.id, role: user.role };
+  try {
+    if (method === "GET" && pathname === "/v1/student/group-info") {
+      sendJson(response, 200, await getStudentGroupInfo(actor));
+    } else if (method === "POST" && pathname === "/v1/student/group-info/cover") {
+      await updateCover(actor, await readJson(request));
+      sendJson(response, 200, { success: true });
+    } else if (method === "POST" && pathname === "/v1/student/group-info/member") {
+      await updateMember(actor, await readJson(request));
+      sendJson(response, 200, { success: true });
+    } else if (method === "PUT" && photoMatch) {
+      const contentType = request.headers["content-type"]?.split(";")[0]?.trim() ?? "";
+      const bytes = await readBytes(request, 2 * 1024 * 1024);
+      const result = await updateMemberPhoto(actor, decodeURIComponent(photoMatch[1]!), contentType, bytes);
+      sendJson(response, 200, result);
+    } else {
+      sendJson(response, 404, { error: "Not found." });
+    }
+  } catch (error) {
+    if (error instanceof ApiDomainError) {
+      sendJson(response, error.status, { error: error.message, code: error.code });
+      return true;
+    }
+    if (error instanceof SyntaxError) {
+      sendJson(response, 400, { error: "Request body must be valid JSON and no larger than 64 KB." });
+      return true;
+    }
+    throw error;
+  }
+  return true;
+}
+
 const scheduleTerms = [
   { term: "SEMESTER_I", label: "Semester I" },
   { term: "SEMESTER_II", label: "Semester II" },
@@ -252,6 +317,7 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
 
   if (await handleGroupRequest(request, response, method, pathname)) return;
   if (await handleSignoffRequest(request, response, method, pathname)) return;
+  if (await handleGroupInfoRequest(request, response, method, pathname)) return;
 
   sendJson(response, 404, { error: "Not found." });
 }
