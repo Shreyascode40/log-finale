@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import type { Role } from "@/lib/roles";
 import { acceptUndertaking, acknowledgeRules } from "@/lib/services/signoff";
-import { createGroup, joinByCode } from "@/lib/services/group";
+import { createGroup, joinByCode } from "../apps/api/src/modules/groups";
 
 const createdEmails: string[] = [];
 const createdGroupIds: string[] = [];

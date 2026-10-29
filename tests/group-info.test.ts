@@ -10,7 +10,7 @@ import {
   updateMember,
   updateMemberPhoto,
 } from "@/lib/services/group-info";
-import { createGroup, joinByCode } from "@/lib/services/group";
+import { createGroup, joinByCode } from "../apps/api/src/modules/groups";
 
 const createdEmails: string[] = [];
 const createdGroupIds: string[] = [];

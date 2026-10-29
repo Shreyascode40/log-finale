@@ -9,7 +9,7 @@ import {
   joinByCode,
   submitGroup,
   type GroupActor,
-} from "@/lib/services/group";
+} from "../apps/api/src/modules/groups";
 
 const createdEmails: string[] = [];
 const createdGroupIds: string[] = [];

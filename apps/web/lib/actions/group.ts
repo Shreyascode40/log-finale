@@ -33,6 +33,7 @@ async function studentActor(): Promise<GroupActor> {
 
 function toError(error: unknown): string {
   if (error instanceof AppError) return error.message;
+  if (error instanceof Error && error.message) return error.message;
   console.error("group action failed", error);
   return "Something went wrong. Please try again.";
 }

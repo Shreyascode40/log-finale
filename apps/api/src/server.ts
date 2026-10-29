@@ -4,6 +4,17 @@ import { z } from "zod";
 import { readInternalIdentity } from "./auth.js";
 import { prisma } from "./db.js";
 import { toJson } from "./json.js";
+import { ApiDomainError } from "./errors.js";
+import {
+  acceptInvite,
+  createGroup,
+  declineInvite,
+  inviteMember,
+  joinByCode,
+  removeMember,
+  submitGroup,
+  type GroupActor,
+} from "./modules/groups.js";
 
 try {
   loadEnvFile(process.env.API_ENV_FILE ?? ".env");
@@ -63,10 +74,67 @@ async function authenticatedUser(request: IncomingMessage) {
   if (!identity) return null;
   const user = await prisma.user.findUnique({
     where: { id: identity.userId },
-    select: { id: true, role: true, active: true },
+    select: { id: true, role: true, active: true, email: true, rollNo: true },
   });
   if (!user?.active || !["STUDENT", "GUIDE", "HOD"].includes(user.role)) return null;
   return user;
+}
+
+async function handleGroupRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  method: string,
+  pathname: string,
+): Promise<boolean> {
+  const memberMatch = pathname.match(/^\/v1\/groups\/members\/([^/]+)$/);
+  const isGroupRoute = pathname === "/v1/groups" || pathname.startsWith("/v1/groups/");
+  if (!isGroupRoute) return false;
+
+  const user = await authenticatedUser(request);
+  if (!user) {
+    sendJson(response, 401, { error: "Authentication required." });
+    return true;
+  }
+  const actor: GroupActor = {
+    id: user.id,
+    role: user.role,
+    email: user.email,
+    rollNo: user.rollNo,
+  };
+
+  try {
+    if (method === "POST" && pathname === "/v1/groups") {
+      sendJson(response, 201, await createGroup(actor, await readJson(request)));
+    } else if (method === "POST" && pathname === "/v1/groups/invites") {
+      sendJson(response, 201, await inviteMember(actor, await readJson(request)));
+    } else if (method === "POST" && pathname === "/v1/groups/invites/accept") {
+      sendJson(response, 200, await acceptInvite(actor, await readJson(request)));
+    } else if (method === "POST" && pathname === "/v1/groups/invites/decline") {
+      await declineInvite(actor, await readJson(request));
+      sendJson(response, 200, { success: true });
+    } else if (method === "POST" && pathname === "/v1/groups/join-by-code") {
+      sendJson(response, 200, await joinByCode(actor, await readJson(request)));
+    } else if (method === "DELETE" && memberMatch) {
+      await removeMember(actor, { memberId: decodeURIComponent(memberMatch[1]!) });
+      sendJson(response, 200, { success: true });
+    } else if (method === "POST" && pathname === "/v1/groups/submit") {
+      await submitGroup(actor, await readJson(request));
+      sendJson(response, 200, { success: true });
+    } else {
+      sendJson(response, 404, { error: "Not found." });
+    }
+  } catch (error) {
+    if (error instanceof ApiDomainError) {
+      sendJson(response, error.status, { error: error.message, code: error.code });
+      return true;
+    }
+    if (error instanceof SyntaxError) {
+      sendJson(response, 400, { error: "Request body must be valid JSON and no larger than 64 KB." });
+      return true;
+    }
+    throw error;
+  }
+  return true;
 }
 
 const scheduleTerms = [
@@ -141,6 +209,8 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
     sendJson(response, 200, { success: true });
     return;
   }
+
+  if (await handleGroupRequest(request, response, method, pathname)) return;
 
   sendJson(response, 404, { error: "Not found." });
 }
