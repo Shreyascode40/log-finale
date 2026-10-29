@@ -2,9 +2,15 @@
   "name": "be",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "apps/api"
+  ],
   "scripts": {
     "predev": "node scripts/check-dev-port.js",
     "dev": "next dev -p 3000",
+    "api:dev": "tsx watch apps/api/src/server.ts",
+    "api:build": "tsc -p apps/api/tsconfig.json",
+    "api:start": "node apps/api/dist/server.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

@@ -19,6 +19,33 @@ UI requirement are in [`AGENTS.md`](./AGENTS.md).
 | PDF | Puppeteer (A4), rendering the same Sheet components |
 | Tests | Vitest (unit) and Playwright (E2E / visual, added later) |
 
+## Frontend and backend
+
+The repository is being split into separately deployable applications. The existing Next.js
+application at the repository root is the frontend. The independent TypeScript API lives in
+`apps/api`; its health endpoint and Schedule read/update flow are the first API-backed slice.
+Schedule persistence and its audit write now run in the API. Other feature services remain in
+the frontend until they are migrated incrementally.
+
+Run both processes locally in separate terminals:
+
+```bash
+npm run dev                 # Next.js frontend on port 3000
+npm run api:dev             # API on port 4000
+```
+
+Deploy the API as its own service using the repository root as its build context. Run
+`npm install`, `npx prisma generate`, and `npm run api:build` at the root, then start it with
+`npm run api:start`. Set `DATABASE_URL`, `API_INTERNAL_SECRET`, `API_PORT`, and comma-separated
+`API_ALLOWED_ORIGINS` in the API service environment. The frontend needs matching
+`API_INTERNAL_SECRET` plus `API_BASE_URL`. Keep the shared secret server-side and use a randomly
+generated value of at least 32 characters. The default local origin is `http://localhost:3000`.
+
+The frontend creates a short-lived signed identity assertion for server-to-server API calls.
+The API verifies it and re-reads the user from the database before applying its own role checks;
+the browser never receives the assertion. As modules move, their authorization and database
+transactions belong in `apps/api`, with Next.js server actions acting as frontend adapters.
+
 ## Setup
 
 ```bash
