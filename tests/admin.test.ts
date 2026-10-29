@@ -9,7 +9,7 @@ import {
   createGuide,
   rejectGroup,
   setUserActive,
-} from "@/lib/services/admin";
+} from "../apps/api/src/modules/admin";
 
 const createdEmails: string[] = [];
 const createdGroupIds: string[] = [];

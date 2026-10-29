@@ -1,372 +1,159 @@
-import { prisma } from "@/lib/prisma";
-import { logAction } from "@/lib/audit";
-import { hashPassword } from "@/lib/password";
-import { AppError } from "@/lib/errors";
-import {
-  approveGroupSchema,
-  assignGuideSchema,
-  createGuideSchema,
-  pdfPermissionSchema,
-  rejectGroupSchema,
-  setUserActiveSchema,
-  updateGuideSchema,
-} from "@/lib/validation/admin";
-import { sponsoredFlagSchema } from "@/lib/validation/sponsored";
-import { getGroupCompletion } from "@/lib/completion/index";
-import { onGuideAssigned, onPdfPermission } from "@/lib/services/notifications";
+import "server-only";
+
+import { backendApi } from "@/lib/backend-api";
 import type { CurrentUser } from "@/lib/permissions";
 
 /**
- * HOD administration service (F3). Every function re-checks the actor role on
- * the server: the HOD-only UI is never the enforcement point.
- *
- * Functions take a plain actor so they can be unit-tested directly.
+ * HOD administration service (F3).
+ * Client service calling the backend API.
  */
 
 type Actor = Pick<CurrentUser, "id" | "role">;
 
-function assertHod(actor: Actor): void {
-  if (actor.role !== "HOD") {
-    throw new AppError("FORBIDDEN", "Only the Head of Department can do this");
-  }
-}
+export type GuideRow = {
+  id: string;
+  name: string;
+  email: string;
+  mobile: string | null;
+  active: boolean;
+  groups: number;
+};
 
-/** Creates a GUIDE account. Guides are never self-registered (rule 11). */
-export async function createGuide(actor: Actor, input: unknown): Promise<{ userId: string }> {
-  assertHod(actor);
+export type GuideOption = {
+  id: string;
+  name: string;
+};
 
-  const parsed = createGuideSchema.safeParse(input);
-  if (!parsed.success) {
-    throw new AppError("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Invalid input");
-  }
-  const { name, email, mobile, password } = parsed.data;
+export type AssignmentRow = {
+  id: string;
+  groupNo: string | null;
+  projectTitle: string | null;
+  status: string;
+  guideId: string | null;
+  guideName: string | null;
+};
 
-  const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
-  if (existing) throw new AppError("EMAIL_TAKEN", "An account with this email already exists");
+export type GroupRow = {
+  id: string;
+  groupNo: string | null;
+  projectTitle: string | null;
+  area: string | null;
+  status: string;
+  rejectReason: string | null;
+  isSponsored: boolean;
+  guideName: string | null;
+  creatorName: string;
+  members: { id: string; name: string; rollNo: string | null }[];
+};
 
-  const passwordHash = await hashPassword(password);
+export type AuditLogRow = {
+  id: string;
+  timestamp: string;
+  action: string;
+  entity: string;
+  entityId: string | null;
+  before: string | null;
+  after: string | null;
+  user: { name: string; email: string; role: string } | null;
+};
 
-  const user = await prisma.$transaction(async (tx) => {
-    const created = await tx.user.create({
-      data: {
-        name,
-        email,
-        mobile: mobile || null,
-        role: "GUIDE",
-        passwordHash,
-        // HOD-created staff accounts are usable immediately
-        emailVerifiedAt: new Date(),
-        createdVia: "HOD_CREATED",
-      },
-    });
-    await logAction(
-      {
-        userId: actor.id,
-        action: "GUIDE_CREATE",
-        entity: "User",
-        entityId: created.id,
-        after: { name, email, role: "GUIDE" },
-      },
-      tx,
-    );
-    return created;
-  });
+export type AuditLogFilterResult = {
+  logs: AuditLogRow[];
+  entities: { entity: string }[];
+  actions: { action: string }[];
+};
 
-  return { userId: user.id };
-}
+export type HodDashboardStats = {
+  guides: number;
+  students: number;
+  submitted: number;
+  active: number;
+  drafts: number;
+};
 
-export async function updateGuide(actor: Actor, input: unknown): Promise<void> {
-  assertHod(actor);
-
-  const parsed = updateGuideSchema.safeParse(input);
-  if (!parsed.success) {
-    throw new AppError("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Invalid input");
-  }
-  const { userId, name, email, mobile } = parsed.data;
-
-  const target = await prisma.user.findUnique({ where: { id: userId } });
-  if (!target || target.role !== "GUIDE") throw new AppError("USER_NOT_FOUND", "Guide not found");
-
-  if (email !== target.email) {
-    const clash = await prisma.user.findUnique({ where: { email }, select: { id: true } });
-    if (clash) throw new AppError("EMAIL_TAKEN", "An account with this email already exists");
-  }
-
-  await prisma.$transaction(async (tx) => {
-    await tx.user.update({ where: { id: userId }, data: { name, email, mobile: mobile || null } });
-    await logAction(
-      {
-        userId: actor.id,
-        action: "GUIDE_UPDATE",
-        entity: "User",
-        entityId: userId,
-        before: { name: target.name, email: target.email, mobile: target.mobile },
-        after: { name, email, mobile: mobile || null },
-      },
-      tx,
-    );
+export function createGuide(_actor: Actor, input: unknown): Promise<{ userId: string }> {
+  return backendApi<{ userId: string }>("/v1/admin/guides", {
+    method: "POST",
+    body: JSON.stringify(input),
   });
 }
 
-/** Activates or deactivates a guide. A deactivated guide cannot sign in. */
-export async function setUserActive(actor: Actor, input: unknown): Promise<void> {
-  assertHod(actor);
-
-  const parsed = setUserActiveSchema.safeParse(input);
-  if (!parsed.success) {
-    throw new AppError("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Invalid input");
-  }
-  const { userId, active } = parsed.data;
-
-  if (userId === actor.id) {
-    throw new AppError("FORBIDDEN", "You cannot deactivate your own account");
-  }
-
-  const target = await prisma.user.findUnique({ where: { id: userId } });
-  if (!target) throw new AppError("USER_NOT_FOUND", "User not found");
-
-  await prisma.$transaction(async (tx) => {
-    await tx.user.update({ where: { id: userId }, data: { active } });
-    await logAction(
-      {
-        userId: actor.id,
-        action: active ? "USER_ACTIVATE" : "USER_DEACTIVATE",
-        entity: "User",
-        entityId: userId,
-        before: { active: target.active },
-        after: { active },
-      },
-      tx,
-    );
+export function updateGuide(_actor: Actor, input: unknown): Promise<void> {
+  return backendApi<void>("/v1/admin/guides", {
+    method: "PATCH",
+    body: JSON.stringify(input),
   });
 }
 
-/**
- * Approves a SUBMITTED group and assigns exactly one guide in the same step,
- * moving the group to ACTIVE (DRAFT -> SUBMITTED -> ACTIVE).
- */
-export async function approveGroup(actor: Actor, input: unknown): Promise<{ groupId: string }> {
-  assertHod(actor);
-
-  const parsed = approveGroupSchema.safeParse(input);
-  if (!parsed.success) {
-    throw new AppError("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Invalid input");
-  }
-  const { groupId, guideId } = parsed.data;
-
-  const group = await prisma.group.findUnique({ where: { id: groupId } });
-  if (!group) throw new AppError("GROUP_NOT_FOUND", "Group not found");
-  if (group.status !== "SUBMITTED") {
-    throw new AppError("INVALID_STATE", "Only a group submitted by the students can be approved");
-  }
-
-  const guide = await prisma.user.findFirst({
-    where: { id: guideId, role: "GUIDE", active: true },
-    select: { id: true, name: true },
-  });
-  if (!guide) throw new AppError("GUIDE_NOT_FOUND", "Select an active guide account");
-
-  await prisma.$transaction(async (tx) => {
-    await tx.group.update({
-      where: { id: groupId },
-      data: { status: "ACTIVE", guideId: guide.id, rejectReason: null },
-    });
-    await logAction(
-      {
-        userId: actor.id,
-        action: "GROUP_APPROVE",
-        entity: "Group",
-        entityId: groupId,
-        before: { status: group.status, guideId: group.guideId },
-        after: { status: "ACTIVE", guideId: guide.id, guideName: guide.name },
-      },
-      tx,
-    );
-  });
-
-  return { groupId };
-}
-
-/** Rejects a SUBMITTED group, sending it back to DRAFT with a reason. */
-export async function rejectGroup(actor: Actor, input: unknown): Promise<void> {
-  assertHod(actor);
-
-  const parsed = rejectGroupSchema.safeParse(input);
-  if (!parsed.success) {
-    throw new AppError("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Invalid input");
-  }
-  const { groupId, reason } = parsed.data;
-
-  const group = await prisma.group.findUnique({ where: { id: groupId } });
-  if (!group) throw new AppError("GROUP_NOT_FOUND", "Group not found");
-  if (group.status !== "SUBMITTED") {
-    throw new AppError("INVALID_STATE", "Only a submitted group can be rejected");
-  }
-
-  await prisma.$transaction(async (tx) => {
-    await tx.group.update({ where: { id: groupId }, data: { status: "DRAFT", rejectReason: reason } });
-    await logAction(
-      {
-        userId: actor.id,
-        action: "GROUP_REJECT",
-        entity: "Group",
-        entityId: groupId,
-        before: { status: group.status },
-        after: { status: "DRAFT", reason },
-      },
-      tx,
-    );
+export function setUserActive(_actor: Actor, input: unknown): Promise<void> {
+  return backendApi<void>("/v1/admin/users/active", {
+    method: "POST",
+    body: JSON.stringify(input),
   });
 }
 
-/**
- * Assigns or reassigns the single guide for a group. A guide may be pre-assigned
- * while the group is SUBMITTED, and reassigned while it is ACTIVE.
- */
-export async function assignGuide(actor: Actor, input: unknown): Promise<void> {
-  assertHod(actor);
-
-  const parsed = assignGuideSchema.safeParse(input);
-  if (!parsed.success) {
-    throw new AppError("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Invalid input");
-  }
-  const { groupId, guideId } = parsed.data;
-
-  const group = await prisma.group.findUnique({ where: { id: groupId } });
-  if (!group) throw new AppError("GROUP_NOT_FOUND", "Group not found");
-  if (!["SUBMITTED", "ACTIVE"].includes(group.status)) {
-    throw new AppError(
-      "INVALID_STATE",
-      "A guide can be assigned while the group is submitted or active",
-    );
-  }
-
-  const guide = await prisma.user.findFirst({
-    where: { id: guideId, role: "GUIDE", active: true },
-    select: { id: true, name: true },
-  });
-  if (!guide) throw new AppError("GUIDE_NOT_FOUND", "Select an active guide account");
-
-  const reassigning = Boolean(group.guideId) && group.guideId !== guide.id;
-
-  await prisma.$transaction(async (tx) => {
-    await tx.group.update({ where: { id: groupId }, data: { guideId: guide.id } });
-    await logAction(
-      {
-        userId: actor.id,
-        action: reassigning ? "GROUP_REASSIGN_GUIDE" : "GROUP_ASSIGN_GUIDE",
-        entity: "Group",
-        entityId: groupId,
-        before: { guideId: group.guideId },
-        after: { guideId: guide.id, guideName: guide.name },
-      },
-      tx,
-    );
-  });
-  await onGuideAssigned(groupId, guide.name);
-}
-
-/** Flags or unflags a group as a sponsored project (F14 unlocks its sheets). */
-export async function setGroupSponsored(actor: Actor, input: unknown): Promise<void> {
-  assertHod(actor);
-
-  const parsed = sponsoredFlagSchema.safeParse(input);
-  if (!parsed.success) {
-    throw new AppError("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Invalid input");
-  }
-  const { groupId, isSponsored } = parsed.data;
-
-  const group = await prisma.group.findUnique({ where: { id: groupId } });
-  if (!group) throw new AppError("GROUP_NOT_FOUND", "Group not found");
-
-  await prisma.$transaction(async (tx) => {
-    await tx.group.update({ where: { id: groupId }, data: { isSponsored } });
-    await logAction(
-      {
-        userId: actor.id,
-        action: "GROUP_SPONSORED",
-        entity: "Group",
-        entityId: groupId,
-        before: { isSponsored: group.isSponsored },
-        after: { isSponsored },
-      },
-      tx,
-    );
+export function approveGroup(_actor: Actor, input: unknown): Promise<{ groupId: string }> {
+  return backendApi<{ groupId: string }>("/v1/admin/groups/approve", {
+    method: "POST",
+    body: JSON.stringify(input),
   });
 }
 
-/**
- * Toggles final-PDF permission for a group (F15). Allowing requires every
- * mandatory section complete (the missing list is returned otherwise) and
- * moves the group to PDF_ALLOWED; revoking clears the flag and returns the
- * group to READY_FOR_PDF (still complete) or ACTIVE.
- */
-export async function setPdfPermission(actor: Actor, input: unknown): Promise<void> {
-  assertHod(actor);
-
-  const parsed = pdfPermissionSchema.safeParse(input);
-  if (!parsed.success) {
-    throw new AppError("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Invalid input");
-  }
-  const { groupId, allowed } = parsed.data;
-
-  const group = await prisma.group.findUnique({ where: { id: groupId } });
-  if (!group) throw new AppError("GROUP_NOT_FOUND", "Group not found");
-  if (group.status === "PDF_GENERATED") {
-    throw new AppError("LOCKED", "The final PDF is already generated for this group");
-  }
-
-  const completion = await getGroupCompletion(groupId);
-  const now = new Date();
-
-  if (allowed) {
-    if (!completion.complete) {
-      throw new AppError(
-        "INCOMPLETE",
-        `Cannot allow PDF generation: ${completion.missing.join(", ")} still incomplete`,
-      );
-    }
-    await prisma.$transaction(async (tx) => {
-      await tx.group.update({
-        where: { id: groupId },
-        data: { pdfPermission: true, pdfPermissionBy: actor.id, pdfPermissionAt: now, status: "PDF_ALLOWED" },
-      });
-      await logAction(
-        {
-          userId: actor.id,
-          action: "GROUP_PDF_ALLOW",
-          entity: "Group",
-          entityId: groupId,
-          before: { pdfPermission: group.pdfPermission, status: group.status },
-          after: { pdfPermission: true, status: "PDF_ALLOWED" },
-        },
-        tx,
-      );
-    });
-    await onPdfPermission(groupId, true);
-    return;
-  }
-
-  const fallback = completion.complete ? "READY_FOR_PDF" : "ACTIVE";
-  const nextStatus = ["PDF_ALLOWED", "READY_FOR_PDF", "ACTIVE"].includes(group.status)
-    ? fallback
-    : group.status;
-  await prisma.$transaction(async (tx) => {
-    await tx.group.update({
-      where: { id: groupId },
-      data: { pdfPermission: false, pdfPermissionBy: null, pdfPermissionAt: null, status: nextStatus },
-    });
-    await logAction(
-      {
-        userId: actor.id,
-        action: "GROUP_PDF_REVOKE",
-        entity: "Group",
-        entityId: groupId,
-        before: { pdfPermission: group.pdfPermission, status: group.status },
-        after: { pdfPermission: false, status: nextStatus },
-      },
-      tx,
-    );
+export function rejectGroup(_actor: Actor, input: unknown): Promise<void> {
+  return backendApi<void>("/v1/admin/groups/reject", {
+    method: "POST",
+    body: JSON.stringify(input),
   });
-  await onPdfPermission(groupId, false);
+}
+
+export function assignGuide(_actor: Actor, input: unknown): Promise<void> {
+  return backendApi<void>("/v1/admin/groups/assign-guide", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function setGroupSponsored(_actor: Actor, input: unknown): Promise<void> {
+  return backendApi<void>("/v1/admin/groups/sponsored", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function setPdfPermission(_actor: Actor, input: unknown): Promise<void> {
+  return backendApi<void>("/v1/admin/groups/pdf-permission", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function listGuides(): Promise<GuideRow[]> {
+  return backendApi<GuideRow[]>("/v1/admin/guides");
+}
+
+export function listActiveGuides(): Promise<GuideOption[]> {
+  return backendApi<GuideOption[]>("/v1/admin/guides/active");
+}
+
+export function listAssignments(): Promise<{ groups: AssignmentRow[]; guides: GuideOption[] }> {
+  return backendApi<{ groups: AssignmentRow[]; guides: GuideOption[] }>("/v1/admin/assignments");
+}
+
+export function listAdminGroups(): Promise<{ groups: GroupRow[]; guides: GuideOption[] }> {
+  return backendApi<{ groups: GroupRow[]; guides: GuideOption[] }>("/v1/admin/groups");
+}
+
+export function listAuditLogs(
+  query: { entity?: string; action?: string; user?: string } = {},
+): Promise<AuditLogFilterResult> {
+  const params = new URLSearchParams();
+  if (query.entity) params.set("entity", query.entity);
+  if (query.action) params.set("action", query.action);
+  if (query.user) params.set("user", query.user);
+  const qs = params.toString();
+  return backendApi<AuditLogFilterResult>(`/v1/admin/audit${qs ? `?${qs}` : ""}`);
+}
+
+export function getHodDashboardStats(): Promise<HodDashboardStats> {
+  return backendApi<HodDashboardStats>("/v1/admin/stats");
 }

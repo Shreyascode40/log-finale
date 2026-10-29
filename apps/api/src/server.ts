@@ -111,6 +111,24 @@ import {
   uploadSeal,
   type SponsoredActor,
 } from "./modules/sponsored.js";
+import {
+  approveGroup,
+  assignGuide,
+  createGuide,
+  getHodDashboardStats,
+  listActiveGuides,
+  listAdminGroups,
+  listAssignments,
+  listAuditLogs,
+  listGuides,
+  rejectGroup,
+  setGroupSponsored,
+  setPdfPermission,
+  setUserActive,
+  updateGuide,
+  type AdminActor,
+} from "./modules/admin.js";
+
 
 
 try {
@@ -712,6 +730,71 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
         const bytes = await readBytes(request, 2 * 1024 * 1024);
         const url = await uploadSeal(actor, contentType, bytes);
         sendJson(response, 200, { url });
+      } else {
+        sendJson(response, 404, { error: "Not found." });
+      }
+    } catch (error) {
+      if (error instanceof ApiDomainError) {
+        sendJson(response, error.status, { error: error.message, code: error.code });
+        return;
+      }
+      if (error instanceof SyntaxError) {
+        sendJson(response, 400, { error: "Request body must be valid JSON and no larger than 64 KB." });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (pathname.startsWith("/v1/admin")) {
+    const user = await authenticatedUser(request);
+    if (!user) {
+      sendJson(response, 401, { error: "Authentication required." });
+      return;
+    }
+    const actor: AdminActor = { id: user.id, role: user.role };
+
+    try {
+      if (method === "GET" && pathname === "/v1/admin/guides") {
+        sendJson(response, 200, await listGuides(actor));
+      } else if (method === "GET" && pathname === "/v1/admin/guides/active") {
+        sendJson(response, 200, await listActiveGuides(actor));
+      } else if (method === "POST" && pathname === "/v1/admin/guides") {
+        sendJson(response, 200, await createGuide(actor, await readJson(request)));
+      } else if (method === "PATCH" && pathname === "/v1/admin/guides") {
+        await updateGuide(actor, await readJson(request));
+        sendJson(response, 200, { success: true });
+      } else if (method === "POST" && pathname === "/v1/admin/users/active") {
+        await setUserActive(actor, await readJson(request));
+        sendJson(response, 200, { success: true });
+      } else if (method === "GET" && pathname === "/v1/admin/assignments") {
+        sendJson(response, 200, await listAssignments(actor));
+      } else if (method === "POST" && pathname === "/v1/admin/groups/approve") {
+        sendJson(response, 200, await approveGroup(actor, await readJson(request)));
+      } else if (method === "POST" && pathname === "/v1/admin/groups/reject") {
+        await rejectGroup(actor, await readJson(request));
+        sendJson(response, 200, { success: true });
+      } else if (method === "POST" && pathname === "/v1/admin/groups/assign-guide") {
+        await assignGuide(actor, await readJson(request));
+        sendJson(response, 200, { success: true });
+      } else if (method === "POST" && pathname === "/v1/admin/groups/sponsored") {
+        await setGroupSponsored(actor, await readJson(request));
+        sendJson(response, 200, { success: true });
+      } else if (method === "POST" && pathname === "/v1/admin/groups/pdf-permission") {
+        await setPdfPermission(actor, await readJson(request));
+        sendJson(response, 200, { success: true });
+      } else if (method === "GET" && pathname === "/v1/admin/groups") {
+        sendJson(response, 200, await listAdminGroups(actor));
+      } else if (method === "GET" && pathname === "/v1/admin/audit") {
+        const query = {
+          entity: requestUrl.searchParams.get("entity") ?? undefined,
+          action: requestUrl.searchParams.get("action") ?? undefined,
+          user: requestUrl.searchParams.get("user") ?? undefined,
+        };
+        sendJson(response, 200, await listAuditLogs(actor, query));
+      } else if (method === "GET" && pathname === "/v1/admin/stats") {
+        sendJson(response, 200, await getHodDashboardStats(actor));
       } else {
         sendJson(response, 404, { error: "Not found." });
       }

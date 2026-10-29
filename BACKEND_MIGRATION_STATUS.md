@@ -12,7 +12,7 @@ request; the goal is not complete.
 ## Git state
 
 - Branch: `codex/work-branch`
-- Last pushed commit: `b04ee9a` — `Move examiner feedback and records workflow to backend API`
+- Last pushed commit: `830114a` — `Move sponsored project workflow to backend API`
 - Branch was aligned with `origin/codex/work-branch` at the last check.
 - `.commandcode/` is an unrelated, pre-existing untracked directory and was left
   untouched.
@@ -44,9 +44,16 @@ The Render API (`apps/api`) currently owns these feature paths:
 10. Sponsored project (meetings, 3-way signatures, edit resets, sponsor feedback,
     and seal uploads). All reads/writes, student/guide permissions, audits, and
     notifications run in the Render API. Web services delegate via internal API tokens.
+11. HOD Administration (user management, guide creation/updates/activation, group
+    approval/rejection, guide assignment/reassignment, sponsored flags, PDF permission
+    toggling with completion checks, audit log querying/filtering, and dashboard stats).
+    All mutations, authorization checks, and audit logging run in the Render API.
+    HOD pages (`/hod/users`, `/hod/assignments`, `/hod/groups`, `/hod/audit`, `/hod`)
+    delegate via API client services.
 
 Relevant pushed commits, newest first:
 
+- `830114a` Move sponsored project workflow to backend API
 - `b04ee9a` Move examiner feedback and records workflow to backend API
 - `1b9c8f2` Move reviews and evaluation marks workflow to backend API
 - `bd8a684` Move activity chart workflow to backend API
@@ -78,14 +85,13 @@ After the last migration stage:
 The backend is still only partly separated. A repo-wide search found direct
 Prisma use under `apps/web` in these areas:
 
-- Services: `admin`, `auth`, `gallery`, `notifications`, and `pdf`.
+- Services: `auth`, `gallery`, `notifications`, and `pdf`.
 - Actions: `group` still queries Prisma for a student's roll number before
   calling the API; that lookup should be removed after the API actor context is
   fully used.
-- Pages/routes: HOD assignments, audit, groups, dashboards and users; student
-  dashboard, group setup, checklists, competitions, cost, notes, papers, PDF,
-  RTM and sponsored pages; the print route; private file/PDF routes and local
-  media route.
+- Pages/routes: student dashboard, group setup, checklists, competitions,
+  cost, notes, papers, PDF, RTM and sponsored pages; the print route;
+  private file/PDF routes and local media route.
 - Completion code: `apps/web/lib/completion/index.ts` and `sections.ts` still
   query Prisma. API copies exist for topic/activity/review/eval checks, but the frontend
   completion engine and dashboard paths have not yet been switched over.
@@ -93,20 +99,18 @@ Prisma use under `apps/web` in these areas:
 
 ## Next work when resumed
 
-1. **Administration:** move user management, group approval/rejection, guide
-   assignment, PDF permission changes, schedule editing, and audit log filtering.
-2. **Notifications and completion:** move inbox read/mark-read paths and all
+1. **Notifications and completion:** move inbox read/mark-read paths and all
    remaining triggers; make Vercel dashboards call the API completion endpoints.
-3. **PDF and files:** move PDF eligibility checks, generation/export records and
+2. **PDF and files:** move PDF eligibility checks, generation/export records and
    file ownership/database access behind Render. Preserve the shared Sheet
    rendering behavior and secure private-file downloads.
-5. **Authentication boundary:** remove NextAuth/auth service database access
+3. **Authentication boundary:** remove NextAuth/auth service database access
    from Vercel. Keep credentials/session handling secure while having Render
    verify credentials and issue/validate the identity used by the frontend.
-6. **Remove remaining frontend database usage:** migrate all pages and route
+4. **Remove remaining frontend database usage:** migrate all pages and route
    handlers listed above; then search all of `apps/web` for Prisma/database
    calls and remove the web Prisma runtime dependency where possible.
-7. **Deployment and full verification:** ensure Render and Vercel environment
+5. **Deployment and full verification:** ensure Render and Vercel environment
    variables, CORS origins, internal secrets, storage/email configuration and
    database URL match the new boundary. Run integration tests against a reachable
    isolated test database, plus typecheck, lint, API build, and deployment smoke

@@ -1,5 +1,5 @@
-import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/permissions";
+import { listAuditLogs } from "@/lib/services/admin";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -25,20 +25,7 @@ export default async function HodAuditPage({
   const action = searchParams?.action?.trim() || undefined;
   const user = searchParams?.user?.trim() || undefined;
 
-  const [logs, entities, actions] = await Promise.all([
-    prisma.auditLog.findMany({
-      where: {
-        ...(entity ? { entity } : {}),
-        ...(action ? { action: { contains: action } } : {}),
-        ...(user ? { user: { email: { contains: user } } } : {}),
-      },
-      orderBy: { timestamp: "desc" },
-      take: 200,
-      include: { user: { select: { name: true, email: true, role: true } } },
-    }),
-    prisma.auditLog.findMany({ distinct: ["entity"], select: { entity: true }, orderBy: { entity: "asc" } }),
-    prisma.auditLog.findMany({ distinct: ["action"], select: { action: true }, orderBy: { action: "asc" } }),
-  ]);
+  const { logs, entities, actions } = await listAuditLogs({ entity, action, user });
 
   return (
     <div className="space-y-4">
@@ -119,7 +106,7 @@ export default async function HodAuditPage({
               logs.map((log) => (
                 <TableRow key={log.id}>
                   <TableCell className="whitespace-nowrap text-xs">
-                    {log.timestamp.toLocaleString("en-GB")}
+                    {new Date(log.timestamp).toLocaleString("en-GB")}
                   </TableCell>
                   <TableCell className="text-sm">
                     {log.user ? (

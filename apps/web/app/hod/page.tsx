@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/permissions";
 import { listRecentActivity } from "@/lib/services/activity";
 import { getHodOverview } from "@/lib/completion/index";
+import { getHodDashboardStats } from "@/lib/services/admin";
 import { RecentActivityCard } from "@/components/app/recent-activity";
 import { PdfToggle } from "@/components/hod/pdf-toggle";
 import { Badge } from "@/components/ui/badge";
@@ -28,13 +28,9 @@ export const metadata = { title: "HOD dashboard — Digital BE Log Book" };
 export default async function HodDashboardPage() {
   const user = await requireRole("HOD");
 
-  const [groups, guides, students, submitted, active, drafts, recent] = await Promise.all([
+  const [groups, statsData, recent] = await Promise.all([
     getHodOverview(),
-    prisma.user.count({ where: { role: "GUIDE" } }),
-    prisma.user.count({ where: { role: "STUDENT" } }),
-    prisma.group.count({ where: { status: "SUBMITTED" } }),
-    prisma.group.count({ where: { status: "ACTIVE" } }),
-    prisma.group.count({ where: { status: "DRAFT" } }),
+    getHodDashboardStats(),
     listRecentActivity({ id: user.id, role: user.role }, 8),
   ]);
 
@@ -43,11 +39,11 @@ export default async function HodDashboardPage() {
   const queueSheets = groups.reduce((sum, group) => sum + group.submittedSheets, 0);
 
   const stats = [
-    { label: "Guide accounts", value: guides, href: "/hod/users" },
-    { label: "Students", value: students, href: "/hod/users" },
-    { label: "Awaiting approval", value: submitted, href: "/hod/groups" },
-    { label: "Active groups", value: active, href: "/hod/groups" },
-    { label: "Draft groups", value: drafts, href: "/hod/groups" },
+    { label: "Guide accounts", value: statsData.guides, href: "/hod/users" },
+    { label: "Students", value: statsData.students, href: "/hod/users" },
+    { label: "Awaiting approval", value: statsData.submitted, href: "/hod/groups" },
+    { label: "Active groups", value: statsData.active, href: "/hod/groups" },
+    { label: "Draft groups", value: statsData.drafts, href: "/hod/groups" },
   ];
 
   return (
@@ -88,7 +84,7 @@ export default async function HodDashboardPage() {
             <Link href="/hod/mock">Mark sheets to decide: {queueSheets}</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
-            <Link href="/hod/groups">Groups to approve: {submitted}</Link>
+            <Link href="/hod/groups">Groups to approve: {statsData.submitted}</Link>
           </Button>
         </CardContent>
       </Card>
