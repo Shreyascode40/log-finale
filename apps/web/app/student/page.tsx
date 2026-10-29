@@ -1,8 +1,7 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/permissions";
 import { listRecentActivity } from "@/lib/services/activity";
+import { getStudentGroupInfo } from "@/lib/services/group-info";
 import { getGroupCompletion } from "@/lib/completion/index";
 import { RecentActivityCard } from "@/components/app/recent-activity";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -42,24 +41,15 @@ const STATUS_LABEL: Record<string, string> = {
 export default async function StudentDashboardPage() {
   const user = await requireRole("STUDENT");
 
-  const membership = await prisma.groupMember.findFirst({
-    where: { userId: user.id },
-    include: {
-      group: {
-        include: {
-          guide: { select: { name: true } },
-          _count: { select: { members: true, competitions: true } },
-        },
-      },
-    },
-  });
-
-  const [recent, completion] = await Promise.all([
+  const [membership, recent] = await Promise.all([
+    getStudentGroupInfo(user.id),
     listRecentActivity({ id: user.id, role: user.role }, 8),
-    membership ? getGroupCompletion(membership.groupId) : Promise.resolve(null),
   ]);
 
-  const eligible = (membership?.group._count.competitions ?? 0) > 0;
+  const completion = membership ? await getGroupCompletion(membership.groupId) : null;
+  const eligible = completion
+    ? (completion.sections.find((s) => s.key === "competitions")?.complete ?? false)
+    : true;
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 px-4 py-6">
@@ -69,7 +59,7 @@ export default async function StudentDashboardPage() {
           {membership ? (
             <CardDescription>
               {membership.group.groupNo ? `Group ${membership.group.groupNo}` : "Group"} ·{" "}
-              {membership.group._count.members} member(s) · Guide:{" "}
+              {membership.group.members.length} member(s) · Guide:{" "}
               {membership.group.guide?.name ?? "not assigned yet"}
             </CardDescription>
           ) : (

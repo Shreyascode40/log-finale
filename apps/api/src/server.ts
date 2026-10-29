@@ -9,6 +9,8 @@ import {
   acceptInvite,
   createGroup,
   declineInvite,
+  getGroupInfoById,
+  getStudentGroupOnboarding,
   inviteMember,
   joinByCode,
   removeMember,
@@ -141,6 +143,7 @@ import {
   checkPdfGate,
   getPdfExport,
   recordPdfExport,
+  listGroupPdfExports,
   type PdfActor,
 } from "./modules/pdf.js";
 import {
@@ -244,6 +247,7 @@ async function handleGroupRequest(
   pathname: string,
 ): Promise<boolean> {
   const memberMatch = pathname.match(/^\/v1\/groups\/members\/([^/]+)$/);
+  const infoMatch = pathname.match(/^\/v1\/groups\/([^/]+)\/info$/);
   const isGroupRoute = pathname === "/v1/groups" || pathname.startsWith("/v1/groups/");
   if (!isGroupRoute) return false;
 
@@ -277,6 +281,10 @@ async function handleGroupRequest(
     } else if (method === "POST" && pathname === "/v1/groups/submit") {
       await submitGroup(actor, await readJson(request));
       sendJson(response, 200, { success: true });
+    } else if (method === "GET" && pathname === "/v1/groups/onboarding") {
+      sendJson(response, 200, await getStudentGroupOnboarding(actor));
+    } else if (method === "GET" && infoMatch) {
+      sendJson(response, 200, await getGroupInfoById(actor, decodeURIComponent(infoMatch[1]!)));
     } else {
       sendJson(response, 404, { error: "Not found." });
     }
@@ -983,6 +991,7 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
     const actor: PdfActor = { id: user.id, role: user.role };
     const gateMatch = pathname.match(/^\/v1\/pdf\/groups\/([^/]+)\/gate$/);
     const exportMatch = pathname.match(/^\/v1\/pdf\/exports\/([^/]+)$/);
+    const exportsListMatch = pathname.match(/^\/v1\/pdf\/groups\/([^/]+)\/exports$/);
 
     try {
       if (method === "GET" && gateMatch) {
@@ -992,6 +1001,8 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
         sendJson(response, 200, await recordPdfExport(actor, body.groupId, body.storageRef));
       } else if (method === "GET" && exportMatch) {
         sendJson(response, 200, await getPdfExport(actor, decodeURIComponent(exportMatch[1]!)));
+      } else if (method === "GET" && exportsListMatch) {
+        sendJson(response, 200, await listGroupPdfExports(actor, decodeURIComponent(exportsListMatch[1]!)));
       } else {
         sendJson(response, 404, { error: "Not found." });
       }

@@ -161,6 +161,28 @@ export async function getPdfExport(actor: PdfActor, exportId: string) {
   return { fileUrl: pdf.fileUrl, groupNo: pdf.group.groupNo };
 }
 
+export async function listGroupPdfExports(actor: PdfActor, groupId: string) {
+  const group = await prisma.group.findUnique({
+    where: { id: groupId },
+    select: {
+      guideId: true,
+      members: { select: { userId: true } },
+    },
+  });
+  if (!group) throw new ApiDomainError("GROUP_NOT_FOUND", "Group not found", 404);
+  const canView =
+    actor.role === "HOD" ||
+    group.members.some((m) => m.userId === actor.id) ||
+    group.guideId === actor.id;
+  if (!canView) {
+    throw new ApiDomainError("FORBIDDEN", "You cannot access this group's PDF exports", 403);
+  }
+  return prisma.pdfExport.findMany({
+    where: { groupId },
+    orderBy: { generatedAt: "desc" },
+  });
+}
+
 export async function authorizeFileAccess(actor: PdfActor, fileUrl: string) {
   const groupAccess = {
     select: { guideId: true, members: { select: { userId: true } } },

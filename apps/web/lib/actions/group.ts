@@ -1,7 +1,6 @@
 "use server";
 
 import { getCurrentUser } from "@/lib/permissions";
-import { prisma } from "@/lib/prisma";
 import { AppError } from "@/lib/errors";
 import {
   acceptInvite,
@@ -27,8 +26,7 @@ async function studentActor(): Promise<GroupActor> {
   if (!user || user.role !== "STUDENT") {
     throw new AppError("FORBIDDEN", "Only students can manage groups");
   }
-  const row = await prisma.user.findUnique({ where: { id: user.id }, select: { rollNo: true } });
-  return { id: user.id, role: "STUDENT", email: user.email, rollNo: row?.rollNo ?? null };
+  return { id: user.id, role: "STUDENT", email: user.email, rollNo: null };
 }
 
 function toError(error: unknown): string {

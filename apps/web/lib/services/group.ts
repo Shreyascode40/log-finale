@@ -62,3 +62,56 @@ export async function submitGroup(_actor: GroupActor, input: unknown) {
     body: JSON.stringify(input),
   });
 }
+
+export async function getStudentGroupOnboarding() {
+  return backendApi<{
+    membership: {
+      id: string;
+      userId: string;
+      groupId: string;
+      group: {
+        id: string;
+        code: string | null;
+        groupNo: string | null;
+        projectTitle: string | null;
+        area: string | null;
+        academicYear: string | null;
+        department: string | null;
+        status: string;
+        rejectReason: string | null;
+        creatorId: string | null;
+        guide: { name: string } | null;
+        members: Array<{
+          id: string;
+          userId: string;
+          name: string | null;
+          rollNo: string | null;
+          mobile: string | null;
+          email: string | null;
+          memberType: string;
+          createdAt: string;
+        }>;
+        invites: Array<{
+          id: string;
+          invitedEmail: string | null;
+          invitedRollNo: string | null;
+          code: string | null;
+          status: string;
+          expiresAt: string;
+          createdAt: string;
+        }>;
+      };
+    } | null;
+    received: Array<{
+      id: string;
+      code: string | null;
+      createdAt: string;
+      expiresAt: string;
+      group: {
+        groupNo: string | null;
+        projectTitle: string | null;
+        code: string | null;
+      };
+    }>;
+  }>("/v1/groups/onboarding");
+}

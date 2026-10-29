@@ -1,5 +1,5 @@
-import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/permissions";
+import { getStudentGroupOnboarding } from "@/lib/services/group";
 import {
   GroupOnboarding,
   type GroupView,
@@ -10,43 +10,12 @@ export const metadata = { title: "My group — Digital BE Log Book" };
 
 export default async function StudentGroupPage() {
   const user = await requireRole("STUDENT");
-
-  const userRow = await prisma.user.findUniqueOrThrow({
-    where: { id: user.id },
-    select: { email: true, rollNo: true },
-  });
-
-  const [membership, received] = await Promise.all([
-    prisma.groupMember.findFirst({
-      where: { userId: user.id },
-      include: {
-        group: {
-          include: {
-            guide: { select: { name: true } },
-            members: { orderBy: { createdAt: "asc" } },
-            invites: { where: { status: "PENDING" }, orderBy: { createdAt: "desc" } },
-          },
-        },
-      },
-    }),
-    prisma.groupInvite.findMany({
-      where: {
-        status: "PENDING",
-        expiresAt: { gt: new Date() },
-        OR: [
-          { invitedEmail: userRow.email },
-          ...(userRow.rollNo ? [{ invitedRollNo: userRow.rollNo }] : []),
-        ],
-      },
-      include: { group: { select: { groupNo: true, projectTitle: true, code: true } } },
-      orderBy: { createdAt: "desc" },
-    }),
-  ]);
+  const { membership, received } = await getStudentGroupOnboarding();
 
   const group: GroupView | null = membership
     ? {
         id: membership.group.id,
-        code: membership.group.code,
+        code: membership.group.code ?? "",
         groupNo: membership.group.groupNo,
         projectTitle: membership.group.projectTitle,
         area: membership.group.area,
@@ -55,12 +24,12 @@ export default async function StudentGroupPage() {
         status: membership.group.status,
         rejectReason: membership.group.rejectReason,
         guideName: membership.group.guide?.name ?? null,
-        creatorId: membership.group.creatorId,
+        creatorId: membership.group.creatorId ?? "",
         myUserId: user.id,
         members: membership.group.members.map((member) => ({
           id: member.id,
           userId: member.userId,
-          name: member.name,
+          name: member.name ?? "",
           rollNo: member.rollNo,
           email: member.email,
           memberType: member.memberType,
@@ -69,7 +38,7 @@ export default async function StudentGroupPage() {
           id: invite.id,
           invitedEmail: invite.invitedEmail,
           invitedRollNo: invite.invitedRollNo,
-          expiresAt: invite.expiresAt.toISOString(),
+          expiresAt: new Date(invite.expiresAt).toISOString(),
         })),
       }
     : null;
@@ -77,8 +46,8 @@ export default async function StudentGroupPage() {
   const receivedInvites: ReceivedInvite[] = received.map((invite) => ({
     id: invite.id,
     groupLabel: invite.group.groupNo ?? invite.group.projectTitle ?? "a group",
-    code: invite.group.code,
-    expiresAt: invite.expiresAt.toISOString(),
+    code: invite.group.code ?? "",
+    expiresAt: new Date(invite.expiresAt).toISOString(),
   }));
 
   return (

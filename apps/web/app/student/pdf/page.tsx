@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/permissions";
 import { getGroupCompletion } from "@/lib/completion/index";
+import { getStudentGroupInfo } from "@/lib/services/group-info";
+import { listPdfExports } from "@/lib/services/pdf";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,18 +18,12 @@ export const metadata = { title: "Final PDF — Digital BE Log Book" };
  */
 export default async function StudentPdfPage() {
   const user = await requireRole("STUDENT");
-  const membership = await prisma.groupMember.findFirst({
-    where: { userId: user.id },
-    include: { group: true },
-  });
+  const membership = await getStudentGroupInfo(user.id);
   if (!membership) redirect("/student/group");
 
   const [completion, exports] = await Promise.all([
     getGroupCompletion(membership.groupId),
-    prisma.pdfExport.findMany({
-      where: { groupId: membership.groupId },
-      orderBy: { generatedAt: "desc" },
-    }),
+    listPdfExports(membership.groupId),
   ]);
 
   const group = membership.group;

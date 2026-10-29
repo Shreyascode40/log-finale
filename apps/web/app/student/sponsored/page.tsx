@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { FeedbackSheet } from "@/components/sponsored/feedback-sheet";
 import { MeetingSheet } from "@/components/sponsored/meeting-sheet";
-import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/permissions";
 import { getSponsoredSheet, getStudentSponsoredGroupId } from "@/lib/services/sponsored";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,12 +19,6 @@ export default async function StudentSponsoredPage({
   const user = await requireRole("STUDENT");
   const groupId = await getStudentSponsoredGroupId(user.id);
   if (!groupId) redirect("/student/group");
-
-  const membership = await prisma.groupMember.findFirst({
-    where: { userId: user.id },
-    include: { group: true },
-  });
-  if (!membership) redirect("/student/group");
 
   const sheet = await getSponsoredSheet(groupId);
   const print = searchParams?.print === "1";
@@ -46,7 +39,7 @@ export default async function StudentSponsoredPage({
     );
   }
 
-  const editable = membership.group.status !== "PDF_GENERATED";
+  const editable = sheet.group.status !== "PDF_GENERATED";
 
   return (
     <>

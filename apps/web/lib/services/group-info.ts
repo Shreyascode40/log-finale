@@ -66,3 +66,46 @@ export async function updateMemberPhoto(_actor: GroupInfoActor, memberId: string
     },
   );
 }
+
+export async function getGroupInfoById(groupId: string) {
+  const group = await backendApi<{
+    id: string;
+    groupNo: string | null;
+    projectTitle: string | null;
+    area: string | null;
+    academicYear: string | null;
+    department: string | null;
+    status: string;
+    guideId: string | null;
+    isSponsored: boolean;
+    createdAt: string;
+    guide: { name: string } | null;
+    members: Array<{
+      id: string;
+      userId: string;
+      name: string | null;
+      rollNo: string | null;
+      mobile: string | null;
+      email: string | null;
+      teResult: string | null;
+      examSeatNo: string | null;
+      contribution: string | null;
+      photoUrl: string | null;
+      memberType: string;
+      createdAt: string;
+      rulesAckAt: string | null;
+      undertakingAcceptedAt: string | null;
+    }>;
+  }>(`/v1/groups/${encodeURIComponent(groupId)}/info`);
+
+  return {
+    ...group,
+    createdAt: new Date(group.createdAt),
+    members: group.members.map((member) => ({
+      ...member,
+      createdAt: new Date(member.createdAt),
+      rulesAckAt: member.rulesAckAt ? new Date(member.rulesAckAt) : null,
+      undertakingAcceptedAt: member.undertakingAcceptedAt ? new Date(member.undertakingAcceptedAt) : null,
+    })),
+  };
+}

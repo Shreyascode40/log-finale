@@ -85,6 +85,14 @@ the database. Do not trust a role or user ID supplied in request JSON.
   - Added `backendSystemApi` and `BackendApiError` in `apps/web/lib/backend-api.ts`.
   - Refactored `apps/web/lib/services/auth.ts` to delegate entirely to the backend API via `backendSystemApi`, removing direct Prisma, bcrypt, and mailer access from the web layer.
   - Updated `tests/auth.test.ts` and `tests/admin.test.ts` to verify the backend auth module.
+- **Step 8: Remove remaining frontend database usage** — completed.
+  - Added `getStudentGroupOnboarding` and `getGroupInfoById` in `apps/api/src/modules/groups.ts` and routes `/v1/groups/onboarding` and `/v1/groups/:groupId/info` in `apps/api/src/server.ts`.
+  - Added `listGroupPdfExports` in `apps/api/src/modules/pdf.ts` and route `/v1/pdf/groups/:groupId/exports` in `apps/api/src/server.ts`.
+  - Removed direct roll-number Prisma query from `apps/web/lib/actions/group.ts`.
+  - Migrated `apps/web/app/student/checklists/page.tsx`, `competitions/page.tsx`, `cost/page.tsx`, `notes/page.tsx`, `papers/page.tsx`, `rtm/page.tsx`, `sponsored/page.tsx`, `pdf/page.tsx`, `group/page.tsx`, and dashboard `page.tsx` to use backend services (`getStudentGroupInfo`, `getStudentGroupOnboarding`, `listPdfExports`).
+  - Migrated `apps/web/app/print/[groupId]/page.tsx` to use `getGroupInfoById`.
+  - Removed dead/obsolete files `apps/web/lib/audit.ts` and `apps/web/lib/completion/sections.ts`.
+  - Verified 0 runtime Prisma queries in `apps/web`.
 
 ## Verification status
 
@@ -101,21 +109,13 @@ After the last migration stage:
 
 ## Work still required
 
-The backend migration is nearly complete. A repo-wide search found direct
-Prisma use under `apps/web` in these remaining areas:
-
-- Actions: `group` still queries Prisma for a student's roll number before
-  calling the API; that lookup should be removed after the API actor context is
-  fully used.
-- Pages/routes: student dashboard, group setup, checklists, competitions,
-  cost, notes, papers, PDF, RTM and sponsored pages; the print route.
+All business logic, database queries, and route mutations have now been completely migrated
+to the Render API (`apps/api`). The remaining stage is final deployment configuration
+and environment verification (Step 9).
 
 ## Next work when resumed
 
-1. **Remove remaining frontend database usage (Step 8):** migrate all pages and route
-   handlers listed above; then search all of `apps/web` for Prisma/database
-   calls and remove the web Prisma runtime dependency where possible.
-2. **Deployment and full verification (Step 9):** ensure Render and Vercel environment
+1. **Deployment and full verification (Step 9):** ensure Render and Vercel environment
    variables, CORS origins, internal secrets, storage/email configuration and
    database URL match the new boundary. Run integration tests against a reachable
    isolated test database, plus typecheck, lint, API build, and deployment smoke

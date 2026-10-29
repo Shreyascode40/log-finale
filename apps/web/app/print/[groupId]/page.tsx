@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { getGroupInfoById } from "@/lib/services/group-info";
 import { canViewGroup, requireUser } from "@/lib/permissions";
 import { homeForRole } from "@/lib/roles";
 import { ACTIVITY_MONTHS, type ActivityMonth } from "@/lib/constants";
@@ -63,13 +63,7 @@ const REVIEW_ORDER = [
 export default async function PrintGroupPage({ params }: { params: { groupId: string } }) {
   const user = await requireUser();
 
-  const group = await prisma.group.findUnique({
-    where: { id: params.groupId },
-    include: {
-      guide: { select: { name: true } },
-      members: { orderBy: { createdAt: "asc" } },
-    },
-  });
+  const group = await getGroupInfoById(params.groupId).catch(() => null);
   if (!group) notFound();
   if (!canViewGroup(user, { guideId: group.guideId, members: group.members })) {
     redirect(homeForRole(user.role));
@@ -162,7 +156,7 @@ export default async function PrintGroupPage({ params }: { params: { groupId: st
       <RulesSheetScreen
         members={group.members.map((member) => ({
           id: member.id,
-          name: member.name,
+          name: member.name ?? "",
           acknowledgedAt: member.rulesAckAt ? member.rulesAckAt.toISOString() : null,
         }))}
         editable={false}
@@ -176,7 +170,7 @@ export default async function PrintGroupPage({ params }: { params: { groupId: st
         projectTitle={group.projectTitle ?? ""}
         members={group.members.map((member) => ({
           id: member.id,
-          name: member.name,
+          name: member.name ?? "",
           acceptedAt: member.undertakingAcceptedAt ? member.undertakingAcceptedAt.toISOString() : null,
         }))}
         editable={false}

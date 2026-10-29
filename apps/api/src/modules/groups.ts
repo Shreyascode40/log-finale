@@ -292,3 +292,63 @@ export async function submitGroup(actor: GroupActor, input: unknown) {
     });
   });
 }
+
+export async function getStudentGroupOnboarding(actor: GroupActor) {
+  assertStudent(actor);
+  const userRow = await prisma.user.findUniqueOrThrow({
+    where: { id: actor.id },
+    select: { email: true, rollNo: true },
+  });
+
+  const [membership, received] = await Promise.all([
+    prisma.groupMember.findFirst({
+      where: { userId: actor.id },
+      include: {
+        group: {
+          include: {
+            guide: { select: { name: true } },
+            members: { orderBy: { createdAt: "asc" } },
+            invites: { where: { status: "PENDING" }, orderBy: { createdAt: "desc" } },
+          },
+        },
+      },
+    }),
+    prisma.groupInvite.findMany({
+      where: {
+        status: "PENDING",
+        expiresAt: { gt: new Date() },
+        OR: [
+          { invitedEmail: userRow.email },
+          ...(userRow.rollNo ? [{ invitedRollNo: userRow.rollNo }] : []),
+        ],
+      },
+      include: { group: { select: { groupNo: true, projectTitle: true, code: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  return { membership, received };
+}
+
+export async function getGroupInfoById(
+  actor: { id: string; role: string },
+  groupId: string,
+) {
+  const group = await prisma.group.findUnique({
+    where: { id: groupId },
+    include: {
+      guide: { select: { name: true } },
+      members: { orderBy: { createdAt: "asc" } },
+    },
+  });
+  if (!group) throw new ApiDomainError("GROUP_NOT_FOUND", "Group not found", 404);
+
+  const canView =
+    actor.role === "HOD" ||
+    group.members.some((m) => m.userId === actor.id) ||
+    group.guideId === actor.id;
+  if (!canView) {
+    throw new ApiDomainError("FORBIDDEN", "You are not authorized to view this group", 403);
+  }
+  return group;
+}

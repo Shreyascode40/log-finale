@@ -124,3 +124,20 @@ export async function generateGroupPdf(
 
   return { bytes, fileName, url: saved.downloadUrl };
 }
+
+export type PdfExportItem = {
+  id: string;
+  groupId: string;
+  fileUrl: string;
+  generatedAt: Date;
+};
+
+export async function listPdfExports(groupId: string): Promise<PdfExportItem[]> {
+  const list = await backendApi<Array<{ id: string; groupId: string; fileUrl: string; generatedAt: string }>>(
+    `/v1/pdf/groups/${encodeURIComponent(groupId)}/exports`,
+  );
+  return list.map((item) => ({
+    ...item,
+    generatedAt: new Date(item.generatedAt),
+  }));
+}
