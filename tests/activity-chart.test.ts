@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import type { Role } from "@/lib/roles";
 import type { ActivityMonth } from "@/lib/constants";
-import { confirmEntry, getMonthChart, verifyEntry } from "@/lib/services/activity-chart";
+import { confirmEntry, getMonthChart, verifyEntry } from "../apps/api/src/modules/activity-chart";
 
 /**
  * F9 — Activity charts. Proves the two-step signature (student confirms, the
@@ -63,8 +63,8 @@ async function makeTemplate(month = "june") {
   });
 }
 
-async function firstEntryId(groupId: string, month: ActivityMonth = "june"): Promise<string> {
-  const chart = await getMonthChart(groupId, month);
+async function firstEntryId(groupId: string, actor: Actor, month: ActivityMonth = "june"): Promise<string> {
+  const chart = await getMonthChart(actor, groupId, month);
   const entry = chart.entries[0];
   if (!entry) throw new Error("no entries materialized");
   return entry.id;
@@ -101,7 +101,7 @@ describe("month charts materialize from templates", () => {
     const group = await makeGroup(student, guide);
     const template = await makeTemplate("july");
 
-    const chart = await getMonthChart(group.id, "july");
+    const chart = await getMonthChart(student, group.id, "july");
 
     expect(chart.entries.length).toBeGreaterThanOrEqual(1);
     const row = chart.entries.find((entry) => entry.text === template.text);
@@ -118,7 +118,7 @@ describe("month charts materialize from templates", () => {
     const group = await makeGroup(student, guide);
 
     // @ts-expect-error deliberate bad month
-    await expect(getMonthChart(group.id, "april")).rejects.toThrow();
+    await expect(getMonthChart(student, group.id, "april" as ActivityMonth)).rejects.toThrow();
   });
 });
 
@@ -127,7 +127,7 @@ describe("student confirmation", () => {
     const guide = await makeUser("GUIDE", "a-guide");
     const student = await makeUser("STUDENT", "a-student");
     const group = await makeGroup(student, guide);
-    const entryId = await firstEntryId(group.id);
+    const entryId = await firstEntryId(group.id, student);
 
     const result = await confirmEntry(student, {
       entryId,
@@ -156,7 +156,7 @@ describe("student confirmation", () => {
     const outsider = await makeUser("STUDENT", "a-outsider");
     const group = await makeGroup(student, guide);
     await makeGroup(outsider, null);
-    const entryId = await firstEntryId(group.id);
+    const entryId = await firstEntryId(group.id, student);
     const input = { entryId, date: "", statusText: "COMPLETE" as const };
 
     await expect(confirmEntry(guide, input)).rejects.toThrow(/Only students/);
@@ -187,7 +187,7 @@ describe("guide verification", () => {
     const guide = await makeUser("GUIDE", "a-guide");
     const student = await makeUser("STUDENT", "a-student");
     const group = await makeGroup(student, guide);
-    const entryId = await firstEntryId(group.id);
+    const entryId = await firstEntryId(group.id, student);
 
     await expect(verifyEntry(guide, { entryId })).rejects.toThrow(/must confirm/);
 
@@ -210,7 +210,7 @@ describe("guide verification", () => {
     const hod = await makeUser("HOD", "a-hod");
     const student = await makeUser("STUDENT", "a-student");
     const group = await makeGroup(student, guide);
-    const entryId = await firstEntryId(group.id);
+    const entryId = await firstEntryId(group.id, student);
     await confirmEntry(student, { entryId, date: "", statusText: "COMPLETE" });
 
     await expect(verifyEntry(student, { entryId })).rejects.toThrow(/Only the project guide/);
@@ -226,7 +226,7 @@ describe("editing a verified row resets it (master rule 7)", () => {
     const guide = await makeUser("GUIDE", "a-guide");
     const student = await makeUser("STUDENT", "a-student");
     const group = await makeGroup(student, guide);
-    const entryId = await firstEntryId(group.id);
+    const entryId = await firstEntryId(group.id, student);
 
     await confirmEntry(student, { entryId, date: "01 Jul 2025", statusText: "COMPLETE" });
     await verifyEntry(guide, { entryId });

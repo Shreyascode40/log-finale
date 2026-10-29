@@ -34,6 +34,16 @@ import {
   scoreTopic,
   type TopicActor,
 } from "./modules/topic.js";
+import {
+  confirmEntry,
+  getMonthChart,
+  getStudentChartGroupId,
+  listChartQueue,
+  listGuideChartGroups,
+  verifyEntry,
+  type ActivityChartActor,
+  type ActivityMonth,
+} from "./modules/activity-chart.js";
 
 try {
   loadEnvFile(process.env.API_ENV_FILE ?? ".env");
@@ -262,6 +272,48 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
   const method = request.method ?? "GET";
   const pathname = new URL(request.url ?? "/", "http://api.local").pathname;
   const requestUrl = new URL(request.url ?? "/", "http://api.local");
+
+  if (pathname.startsWith("/v1/activity-charts")) {
+    const user = await authenticatedUser(request);
+    if (!user) {
+      sendJson(response, 401, { error: "Authentication required." });
+      return;
+    }
+    const actor: ActivityChartActor = { id: user.id, role: user.role };
+    const monthMatch = pathname.match(/^\/v1\/activity-charts\/groups\/([^/]+)\/([^/]+)$/);
+    try {
+      if (method === "GET" && pathname === "/v1/activity-charts/student-group") {
+        sendJson(response, 200, await getStudentChartGroupId(actor));
+      } else if (method === "GET" && pathname === "/v1/activity-charts/guide-groups") {
+        sendJson(response, 200, await listGuideChartGroups(actor));
+      } else if (method === "GET" && pathname === "/v1/activity-charts/hod-queue") {
+        sendJson(response, 200, await listChartQueue(actor));
+      } else if (method === "GET" && monthMatch) {
+        sendJson(response, 200, await getMonthChart(
+          actor,
+          decodeURIComponent(monthMatch[1]!),
+          decodeURIComponent(monthMatch[2]!) as ActivityMonth,
+        ));
+      } else if (method === "POST" && pathname === "/v1/activity-charts/confirm") {
+        sendJson(response, 200, await confirmEntry(actor, await readJson(request)));
+      } else if (method === "POST" && pathname === "/v1/activity-charts/verify") {
+        sendJson(response, 200, await verifyEntry(actor, await readJson(request)));
+      } else {
+        sendJson(response, 404, { error: "Not found." });
+      }
+    } catch (error) {
+      if (error instanceof ApiDomainError) {
+        sendJson(response, error.status, { error: error.message, code: error.code });
+        return;
+      }
+      if (error instanceof SyntaxError) {
+        sendJson(response, 400, { error: "Request body must be valid JSON and no larger than 64 KB." });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
 
   if (pathname.startsWith("/v1/topics")) {
     const user = await authenticatedUser(request);
