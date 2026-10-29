@@ -12,7 +12,7 @@ request; the goal is not complete.
 ## Git state
 
 - Branch: `codex/work-branch`
-- Last pushed commit: `bd8a684` — `Move activity chart workflow to backend API`
+- Last pushed commit: `b04ee9a` — `Move examiner feedback and records workflow to backend API`
 - Branch was aligned with `origin/codex/work-branch` at the last check.
 - `.commandcode/` is an unrelated, pre-existing untracked directory and was left
   untouched.
@@ -41,9 +41,13 @@ The Render API (`apps/api`) currently owns these feature paths:
 9. Examiner feedback and independent records (competitions, papers, checklists,
    RTM, cost, notes, and file uploads). All reads/writes, ownership checks, audits,
    and notifications run in the Render API.
+10. Sponsored project (meetings, 3-way signatures, edit resets, sponsor feedback,
+    and seal uploads). All reads/writes, student/guide permissions, audits, and
+    notifications run in the Render API. Web services delegate via internal API tokens.
 
 Relevant pushed commits, newest first:
 
+- `b04ee9a` Move examiner feedback and records workflow to backend API
 - `1b9c8f2` Move reviews and evaluation marks workflow to backend API
 - `bd8a684` Move activity chart workflow to backend API
 - `5e459a9` Move topic workflow and notifications to backend API
@@ -74,7 +78,7 @@ After the last migration stage:
 The backend is still only partly separated. A repo-wide search found direct
 Prisma use under `apps/web` in these areas:
 
-- Services: `admin`, `auth`, `gallery`, `notifications`, `pdf`, and `sponsored`.
+- Services: `admin`, `auth`, `gallery`, `notifications`, and `pdf`.
 - Actions: `group` still queries Prisma for a student's roll number before
   calling the API; that lookup should be removed after the API actor context is
   fully used.
@@ -89,13 +93,11 @@ Prisma use under `apps/web` in these areas:
 
 ## Next work when resumed
 
-1. **Sponsored project:** move meetings, signatures, sponsor feedback, and seal
-   upload with their guide/student permissions, audit records, and notifications.
-2. **Administration:** move user management, group approval/rejection, guide
+1. **Administration:** move user management, group approval/rejection, guide
    assignment, PDF permission changes, schedule editing, and audit log filtering.
-3. **Notifications and completion:** move inbox read/mark-read paths and all
+2. **Notifications and completion:** move inbox read/mark-read paths and all
    remaining triggers; make Vercel dashboards call the API completion endpoints.
-4. **PDF and files:** move PDF eligibility checks, generation/export records and
+3. **PDF and files:** move PDF eligibility checks, generation/export records and
    file ownership/database access behind Render. Preserve the shared Sheet
    rendering behavior and secure private-file downloads.
 5. **Authentication boundary:** remove NextAuth/auth service database access

@@ -72,3 +72,21 @@ export type CompetitionType = (typeof COMPETITION_TYPES)[number];
 
 export const RECORD_CONTENT_TYPES = ["RTM", "COST"] as const;
 export type RecordContentType = (typeof RECORD_CONTENT_TYPES)[number];
+
+export const SPONSOR_PARAMETERS = [
+  { key: "p1", label: "Ability to apply subject knowledge" },
+  { key: "p2", label: "Ability to formulate, design and analyze the problem" },
+  { key: "p3", label: "Ability to learn advanced technology (hardware/software tools)" },
+  { key: "p4", label: "Communication skills" },
+  { key: "p5", label: "Ability to work in a team" },
+  { key: "p6", label: "Professional / ethical attitude" },
+  { key: "p7", label: "Multidisciplinary aspect" },
+] as const;
+
+export type SponsorParameterKey = (typeof SPONSOR_PARAMETERS)[number]["key"];
+
+export const SPONSOR_RATINGS = ["HIGH", "MEDIUM", "LOW"] as const;
+export type SponsorRating = (typeof SPONSOR_RATINGS)[number];
+
+export const SPONSORED_SEMESTERS = ["SEMESTER_1", "SEMESTER_2"] as const;
+export type SponsoredSemester = (typeof SPONSORED_SEMESTERS)[number];

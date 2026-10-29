@@ -11,7 +11,7 @@ import {
   saveSponsorFeedback,
   signMeetingGuide,
   signMeetingStudent,
-} from "@/lib/services/sponsored";
+} from "../apps/api/src/modules/sponsored";
 
 /**
  * F14 — Sponsored project sheets. Proves the sponsored-only gate, the

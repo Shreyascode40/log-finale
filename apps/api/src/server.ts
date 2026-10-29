@@ -97,6 +97,21 @@ import {
   uploadPaperFile,
   type RecordsActor,
 } from "./modules/records.js";
+import {
+  deleteMeeting,
+  getSponsoredSheet,
+  getStudentSponsoredGroupId,
+  listGuideSponsoredGroups,
+  listSponsoredQueue,
+  recordExternalSign,
+  saveMeeting,
+  saveSponsorFeedback,
+  signMeetingGuide,
+  signMeetingStudent,
+  uploadSeal,
+  type SponsoredActor,
+} from "./modules/sponsored.js";
+
 
 try {
   loadEnvFile(process.env.API_ENV_FILE ?? ".env");
@@ -644,6 +659,59 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
         sendJson(response, 200, { success: true });
       } else if (method === "GET" && bundleMatch) {
         sendJson(response, 200, await getGroupRecords(actor, decodeURIComponent(bundleMatch[1]!)));
+      } else {
+        sendJson(response, 404, { error: "Not found." });
+      }
+    } catch (error) {
+      if (error instanceof ApiDomainError) {
+        sendJson(response, error.status, { error: error.message, code: error.code });
+        return;
+      }
+      if (error instanceof SyntaxError) {
+        sendJson(response, 400, { error: "Request body must be valid JSON and no larger than 64 KB." });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (pathname.startsWith("/v1/sponsored")) {
+    const user = await authenticatedUser(request);
+    if (!user) {
+      sendJson(response, 401, { error: "Authentication required." });
+      return;
+    }
+    const actor: SponsoredActor = { id: user.id, role: user.role };
+    const groupMatch = pathname.match(/^\/v1\/sponsored\/groups\/([^/]+)$/);
+
+    try {
+      if (method === "GET" && pathname === "/v1/sponsored/student-group") {
+        sendJson(response, 200, await getStudentSponsoredGroupId(actor));
+      } else if (method === "GET" && pathname === "/v1/sponsored/guide-groups") {
+        sendJson(response, 200, await listGuideSponsoredGroups(actor));
+      } else if (method === "GET" && pathname === "/v1/sponsored/hod-queue") {
+        sendJson(response, 200, await listSponsoredQueue(actor));
+      } else if (method === "GET" && groupMatch) {
+        sendJson(response, 200, await getSponsoredSheet(actor, decodeURIComponent(groupMatch[1]!)));
+      } else if (method === "POST" && pathname === "/v1/sponsored/meetings") {
+        sendJson(response, 200, await saveMeeting(actor, await readJson(request)));
+      } else if (method === "POST" && pathname === "/v1/sponsored/meetings/delete") {
+        await deleteMeeting(actor, await readJson(request));
+        sendJson(response, 200, { success: true });
+      } else if (method === "POST" && pathname === "/v1/sponsored/meetings/sign-student") {
+        sendJson(response, 200, await signMeetingStudent(actor, await readJson(request)));
+      } else if (method === "POST" && pathname === "/v1/sponsored/meetings/sign-guide") {
+        sendJson(response, 200, await signMeetingGuide(actor, await readJson(request)));
+      } else if (method === "POST" && pathname === "/v1/sponsored/meetings/record-external-sign") {
+        sendJson(response, 200, await recordExternalSign(actor, await readJson(request)));
+      } else if (method === "POST" && pathname === "/v1/sponsored/feedback") {
+        sendJson(response, 200, await saveSponsorFeedback(actor, await readJson(request)));
+      } else if (method === "PUT" && pathname === "/v1/sponsored/seal") {
+        const contentType = request.headers["content-type"]?.split(";")[0]?.trim() ?? "";
+        const bytes = await readBytes(request, 2 * 1024 * 1024);
+        const url = await uploadSeal(actor, contentType, bytes);
+        sendJson(response, 200, { url });
       } else {
         sendJson(response, 404, { error: "Not found." });
       }
