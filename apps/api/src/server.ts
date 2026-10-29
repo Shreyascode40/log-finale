@@ -15,6 +15,7 @@ import {
   submitGroup,
   type GroupActor,
 } from "./modules/groups.js";
+import { acceptUndertaking, acknowledgeRules, type SignoffActor } from "./modules/signoff.js";
 
 try {
   loadEnvFile(process.env.API_ENV_FILE ?? ".env");
@@ -137,6 +138,45 @@ async function handleGroupRequest(
   return true;
 }
 
+async function handleSignoffRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  method: string,
+  pathname: string,
+): Promise<boolean> {
+  if (method !== "POST" || !["/v1/signoff/rules", "/v1/signoff/undertaking"].includes(pathname)) {
+    return false;
+  }
+  const user = await authenticatedUser(request);
+  if (!user) {
+    sendJson(response, 401, { error: "Authentication required." });
+    return true;
+  }
+  try {
+    const body = z.object({ memberId: z.string().min(1) }).safeParse(await readJson(request));
+    if (!body.success) {
+      sendJson(response, 400, { error: body.error.issues[0]?.message ?? "Choose a member to sign." });
+      return true;
+    }
+    const actor: SignoffActor = { id: user.id, role: user.role };
+    const result = pathname.endsWith("/rules")
+      ? await acknowledgeRules(actor, body.data.memberId)
+      : await acceptUndertaking(actor, body.data.memberId);
+    sendJson(response, 200, result);
+  } catch (error) {
+    if (error instanceof ApiDomainError) {
+      sendJson(response, error.status, { error: error.message, code: error.code });
+      return true;
+    }
+    if (error instanceof SyntaxError) {
+      sendJson(response, 400, { error: "Request body must be valid JSON and no larger than 64 KB." });
+      return true;
+    }
+    throw error;
+  }
+  return true;
+}
+
 const scheduleTerms = [
   { term: "SEMESTER_I", label: "Semester I" },
   { term: "SEMESTER_II", label: "Semester II" },
@@ -211,6 +251,7 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
   }
 
   if (await handleGroupRequest(request, response, method, pathname)) return;
+  if (await handleSignoffRequest(request, response, method, pathname)) return;
 
   sendJson(response, 404, { error: "Not found." });
 }
