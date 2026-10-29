@@ -38,9 +38,13 @@ The Render API (`apps/api`) currently owns these feature paths:
    Final evaluation). Zod validation, server-computed mark totals, guide-only writes,
    guide/HOD approval, HOD-only unlock with reason, audit logging, notifications,
    and completion checks run in the API. Web services delegate via internal API tokens.
+9. Examiner feedback and independent records (competitions, papers, checklists,
+   RTM, cost, notes, and file uploads). All reads/writes, ownership checks, audits,
+   and notifications run in the Render API.
 
 Relevant pushed commits, newest first:
 
+- `1b9c8f2` Move reviews and evaluation marks workflow to backend API
 - `bd8a684` Move activity chart workflow to backend API
 - `5e459a9` Move topic workflow and notifications to backend API
 - `67f081b` Move recent activity feed to backend API
@@ -70,8 +74,7 @@ After the last migration stage:
 The backend is still only partly separated. A repo-wide search found direct
 Prisma use under `apps/web` in these areas:
 
-- Services: `admin`, `auth`, `examiner`, `gallery`, `notifications`,
-  `pdf`, `records`, and `sponsored`.
+- Services: `admin`, `auth`, `gallery`, `notifications`, `pdf`, and `sponsored`.
 - Actions: `group` still queries Prisma for a student's roll number before
   calling the API; that lookup should be removed after the API actor context is
   fully used.
@@ -86,25 +89,22 @@ Prisma use under `apps/web` in these areas:
 
 ## Next work when resumed
 
-1. **Examiner feedback and records:** move examiner, checklist, RTM/cost, notes,
-   competitions, papers, and content page reads/writes. Keep uploads on Render
-   with existing private storage and ownership checks.
-2. **Sponsored project:** move meetings, signatures, sponsor feedback, and seal
+1. **Sponsored project:** move meetings, signatures, sponsor feedback, and seal
    upload with their guide/student permissions, audit records, and notifications.
-3. **Administration:** move user management, group approval/rejection, guide
+2. **Administration:** move user management, group approval/rejection, guide
    assignment, PDF permission changes, schedule editing, and audit log filtering.
-4. **Notifications and completion:** move inbox read/mark-read paths and all
+3. **Notifications and completion:** move inbox read/mark-read paths and all
    remaining triggers; make Vercel dashboards call the API completion endpoints.
-5. **PDF and files:** move PDF eligibility checks, generation/export records and
+4. **PDF and files:** move PDF eligibility checks, generation/export records and
    file ownership/database access behind Render. Preserve the shared Sheet
    rendering behavior and secure private-file downloads.
-6. **Authentication boundary:** remove NextAuth/auth service database access
+5. **Authentication boundary:** remove NextAuth/auth service database access
    from Vercel. Keep credentials/session handling secure while having Render
    verify credentials and issue/validate the identity used by the frontend.
-7. **Remove remaining frontend database usage:** migrate all pages and route
+6. **Remove remaining frontend database usage:** migrate all pages and route
    handlers listed above; then search all of `apps/web` for Prisma/database
    calls and remove the web Prisma runtime dependency where possible.
-8. **Deployment and full verification:** ensure Render and Vercel environment
+7. **Deployment and full verification:** ensure Render and Vercel environment
    variables, CORS origins, internal secrets, storage/email configuration and
    database URL match the new boundary. Run integration tests against a reachable
    isolated test database, plus typecheck, lint, API build, and deployment smoke

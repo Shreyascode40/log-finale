@@ -68,6 +68,35 @@ import {
   type EvalActor,
   type EvalKind,
 } from "./modules/evaluation.js";
+import {
+  getExaminerSheet,
+  getStudentExaminerGroupId,
+  listExaminerQueue,
+  listGuideExaminerGroups,
+  saveExaminerFeedback,
+  type ExaminerActor,
+} from "./modules/examiner.js";
+import {
+  deleteCompetition,
+  deleteNote,
+  deletePaper,
+  getChecklist,
+  getContentPage,
+  getGroupRecords,
+  listCompetitions,
+  listNotes,
+  listPapers,
+  listRecordsQueue,
+  saveCompetition,
+  saveContent,
+  saveNote,
+  savePaper,
+  setChecklist,
+  uploadCertificate,
+  uploadContentFile,
+  uploadPaperFile,
+  type RecordsActor,
+} from "./modules/records.js";
 
 try {
   loadEnvFile(process.env.API_ENV_FILE ?? ".env");
@@ -128,7 +157,7 @@ async function readBytes(request: IncomingMessage, maxBytes: number): Promise<Bu
   for await (const chunk of request) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     size += buffer.length;
-    if (size > maxBytes) throw new ApiDomainError("FILE_TOO_LARGE", "Photo must be 2 MB or smaller", 413);
+    if (size > maxBytes) throw new ApiDomainError("FILE_TOO_LARGE", "File is too large", 413);
     chunks.push(buffer);
   }
   return Buffer.concat(chunks);
@@ -474,6 +503,147 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
         const body = (await readJson(request)) as { kind: EvalKind };
         await unlockEvalSheets(actor, body.kind, body);
         sendJson(response, 200, { success: true });
+      } else {
+        sendJson(response, 404, { error: "Not found." });
+      }
+    } catch (error) {
+      if (error instanceof ApiDomainError) {
+        sendJson(response, error.status, { error: error.message, code: error.code });
+        return;
+      }
+      if (error instanceof SyntaxError) {
+        sendJson(response, 400, { error: "Request body must be valid JSON and no larger than 64 KB." });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (pathname.startsWith("/v1/examiner")) {
+    const user = await authenticatedUser(request);
+    if (!user) {
+      sendJson(response, 401, { error: "Authentication required." });
+      return;
+    }
+    const actor: ExaminerActor = { id: user.id, role: user.role };
+    const sheetMatch = pathname.match(/^\/v1\/examiner\/groups\/([^/]+)\/([^/]+)$/);
+    try {
+      if (method === "GET" && pathname === "/v1/examiner/student-group") {
+        sendJson(response, 200, await getStudentExaminerGroupId(actor));
+      } else if (method === "GET" && pathname === "/v1/examiner/guide-groups") {
+        sendJson(response, 200, await listGuideExaminerGroups(actor));
+      } else if (method === "GET" && pathname === "/v1/examiner/hod-queue") {
+        sendJson(response, 200, await listExaminerQueue(actor));
+      } else if (method === "GET" && sheetMatch) {
+        sendJson(
+          response,
+          200,
+          await getExaminerSheet(actor, decodeURIComponent(sheetMatch[1]!), decodeURIComponent(sheetMatch[2]!)),
+        );
+      } else if (method === "POST" && pathname === "/v1/examiner/save") {
+        await saveExaminerFeedback(actor, await readJson(request));
+        sendJson(response, 200, { success: true });
+      } else {
+        sendJson(response, 404, { error: "Not found." });
+      }
+    } catch (error) {
+      if (error instanceof ApiDomainError) {
+        sendJson(response, error.status, { error: error.message, code: error.code });
+        return;
+      }
+      if (error instanceof SyntaxError) {
+        sendJson(response, 400, { error: "Request body must be valid JSON and no larger than 64 KB." });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (pathname.startsWith("/v1/records")) {
+    const user = await authenticatedUser(request);
+    if (!user) {
+      sendJson(response, 401, { error: "Authentication required." });
+      return;
+    }
+    const actor: RecordsActor = { id: user.id, role: user.role };
+    const competitionsMatch = pathname.match(/^\/v1\/records\/groups\/([^/]+)\/competitions$/);
+    const certMatch = pathname.match(/^\/v1\/records\/competitions\/([^/]+)\/certificate$/);
+    const papersMatch = pathname.match(/^\/v1\/records\/groups\/([^/]+)\/papers$/);
+    const paperFileMatch = pathname.match(/^\/v1\/records\/papers\/([^/]+)\/file$/);
+    const checklistMatch = pathname.match(/^\/v1\/records\/groups\/([^/]+)\/checklists\/([^/]+)$/);
+    const contentMatch = pathname.match(/^\/v1\/records\/groups\/([^/]+)\/content\/([^/]+)$/);
+    const contentFileMatch = pathname.match(/^\/v1\/records\/content\/([^/]+)\/file$/);
+    const notesMatch = pathname.match(/^\/v1\/records\/groups\/([^/]+)\/notes$/);
+    const bundleMatch = pathname.match(/^\/v1\/records\/groups\/([^/]+)\/bundle$/);
+
+    try {
+      if (method === "GET" && pathname === "/v1/records/hod-queue") {
+        sendJson(response, 200, await listRecordsQueue(actor));
+      } else if (method === "GET" && competitionsMatch) {
+        sendJson(response, 200, await listCompetitions(actor, decodeURIComponent(competitionsMatch[1]!)));
+      } else if (method === "POST" && pathname === "/v1/records/competitions") {
+        sendJson(response, 200, await saveCompetition(actor, await readJson(request)));
+      } else if (method === "POST" && pathname === "/v1/records/competitions/delete") {
+        await deleteCompetition(actor, await readJson(request));
+        sendJson(response, 200, { success: true });
+      } else if (method === "PUT" && certMatch) {
+        const contentType = request.headers["content-type"]?.split(";")[0]?.trim() ?? "";
+        const bytes = await readBytes(request, 10 * 1024 * 1024);
+        const url = await uploadCertificate(actor, decodeURIComponent(certMatch[1]!), contentType, bytes);
+        sendJson(response, 200, { url });
+      } else if (method === "GET" && papersMatch) {
+        sendJson(response, 200, await listPapers(actor, decodeURIComponent(papersMatch[1]!)));
+      } else if (method === "POST" && pathname === "/v1/records/papers") {
+        sendJson(response, 200, await savePaper(actor, await readJson(request)));
+      } else if (method === "POST" && pathname === "/v1/records/papers/delete") {
+        await deletePaper(actor, await readJson(request));
+        sendJson(response, 200, { success: true });
+      } else if (method === "PUT" && paperFileMatch) {
+        const contentType = request.headers["content-type"]?.split(";")[0]?.trim() ?? "";
+        const bytes = await readBytes(request, 10 * 1024 * 1024);
+        const url = await uploadPaperFile(actor, decodeURIComponent(paperFileMatch[1]!), contentType, bytes);
+        sendJson(response, 200, { url });
+      } else if (method === "GET" && checklistMatch) {
+        sendJson(
+          response,
+          200,
+          await getChecklist(actor, decodeURIComponent(checklistMatch[1]!), decodeURIComponent(checklistMatch[2]!)),
+        );
+      } else if (method === "POST" && pathname === "/v1/records/checklists") {
+        sendJson(response, 200, await setChecklist(actor, await readJson(request)));
+      } else if (method === "GET" && contentMatch) {
+        sendJson(
+          response,
+          200,
+          await getContentPage(
+            actor,
+            decodeURIComponent(contentMatch[1]!),
+            decodeURIComponent(contentMatch[2]!) as "RTM" | "COST",
+          ),
+        );
+      } else if (method === "POST" && pathname === "/v1/records/content") {
+        sendJson(response, 200, await saveContent(actor, await readJson(request)));
+      } else if (method === "PUT" && contentFileMatch) {
+        const contentType = request.headers["content-type"]?.split(";")[0]?.trim() ?? "";
+        const bytes = await readBytes(request, 10 * 1024 * 1024);
+        const url = await uploadContentFile(
+          actor,
+          decodeURIComponent(contentFileMatch[1]!) as "RTM" | "COST",
+          contentType,
+          bytes,
+        );
+        sendJson(response, 200, { url });
+      } else if (method === "GET" && notesMatch) {
+        sendJson(response, 200, await listNotes(actor, decodeURIComponent(notesMatch[1]!)));
+      } else if (method === "POST" && pathname === "/v1/records/notes") {
+        sendJson(response, 200, await saveNote(actor, await readJson(request)));
+      } else if (method === "POST" && pathname === "/v1/records/notes/delete") {
+        await deleteNote(actor, await readJson(request));
+        sendJson(response, 200, { success: true });
+      } else if (method === "GET" && bundleMatch) {
+        sendJson(response, 200, await getGroupRecords(actor, decodeURIComponent(bundleMatch[1]!)));
       } else {
         sendJson(response, 404, { error: "Not found." });
       }

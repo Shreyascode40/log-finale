@@ -14,7 +14,7 @@ import {
   saveNote,
   savePaper,
   setChecklist,
-} from "@/lib/services/records";
+} from "../apps/api/src/modules/records";
 
 /**
  * F12 — Independent records. Proves student-only writes, group ownership,

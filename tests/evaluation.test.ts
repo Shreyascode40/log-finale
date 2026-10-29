@@ -9,7 +9,7 @@ import {
   submitMockSheets,
   unlockMockSheets,
 } from "../apps/api/src/modules/evaluation";
-import { getExaminerSheet, saveExaminerFeedback } from "@/lib/services/examiner";
+import { getExaminerSheet, saveExaminerFeedback } from "../apps/api/src/modules/examiner";
 
 /**
  * F11 — Mock Evaluation (50) and Examiner Feedback Term-I. Proves the

@@ -10,7 +10,7 @@ import {
   submitFinalSheets,
   unlockFinalSheets,
 } from "../apps/api/src/modules/evaluation";
-import { getExaminerSheet, saveExaminerFeedback } from "@/lib/services/examiner";
+import { getExaminerSheet, saveExaminerFeedback } from "../apps/api/src/modules/examiner";
 
 /**
  * F13 — Term-II reviews (with per-row dates), Final Evaluation (100) and

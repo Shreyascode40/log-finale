@@ -11,6 +11,9 @@ export const EXAMINER_QUESTIONS: readonly string[] = [
   "Ability to recognize the need of engaging in life-long learning",
 ];
 
+export const EXAMINER_RATINGS = ["Excellent", "Good", "Satisfactory"] as const;
+export type ExaminerRating = (typeof EXAMINER_RATINGS)[number];
+
 export const ALL_REVIEW_TYPES = [
   "REVIEW_I",
   "REVIEW_II",
@@ -43,3 +46,29 @@ export const FINAL_T2_COMPONENTS = [
   { key: "documents", label: "Documents and Report", max: 10 },
 ] as const;
 export const FINAL_T2_TOTAL = 100;
+
+export const CHECKLIST_ITEMS: Record<"TERM_I" | "TERM_II", readonly string[]> = {
+  TERM_I: [
+    "Each group submits hard copy and soft copy of synopsis.",
+    "All groups complete the partial project report as per prescribed format.",
+    "Prepare soft copy of partial report, get it checked by the internal guide, then print hardcopy.",
+    "Hard copy of partial report in spiral bound form: 1 copy for department plus each group member copy.",
+    "Submit the Project Work file containing Term-I Project Laboratory assignments to the guide.",
+  ],
+  TERM_II: [
+    "Complete the project in all respect (hardware and software) in the stipulated time.",
+    "Prepare soft copy of project report, get it checked by internal guide, then print hardcopy.",
+    "Hard copy in hardbound form: 2 copies for the department plus each member copy.",
+    "Prepare the project CD containing: complete demo, final project report, readme for execution, PPT of final presentation, software code, paper presented/published, scan copy of certificates, scan copy of sponsorship and completion letter (if applicable), two-page synopsis in given format for the project manual.",
+    "Submit the Project Work file containing Term-II Project Laboratory assignments.",
+    "Submit hardcopy of report, CD and Project Work file as final submission.",
+    "Submit Xerox copies of certificates and hard copy of the paper presented.",
+    "Submit the 2-page synopsis checked by the Project Coordinator for the department project manual.",
+  ],
+};
+
+export const COMPETITION_TYPES = ["POSTER", "DEMO", "PAPER_PRESENTATION"] as const;
+export type CompetitionType = (typeof COMPETITION_TYPES)[number];
+
+export const RECORD_CONTENT_TYPES = ["RTM", "COST"] as const;
+export type RecordContentType = (typeof RECORD_CONTENT_TYPES)[number];
