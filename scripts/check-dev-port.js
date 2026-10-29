@@ -1,6 +1,6 @@
 // Blocks a second `npm run dev`.
 //
-// Two dev servers share the same `.next/` folder and corrupt each other's
+// Two dev servers share the same `apps/web/.next/` folder and corrupt each other's
 // build (static-asset 404s, unstyled pages, dead buttons), with the second one
 // silently moving to port 3001. npm runs this automatically before `dev`; if
 // port 3000 is already taken it aborts and points at the running server.
@@ -14,7 +14,7 @@ socket.on("connect", () => {
   console.error(
     `\nPort ${PORT} is already in use — a dev server is already running.\n` +
       `Open http://localhost:${PORT} instead of starting another one.\n` +
-      `Two "npm run dev" processes share the .next folder and break the app.\n`,
+      `Two "npm run dev" processes share apps/web/.next and break the app.\n`,
   );
   socket.destroy();
   process.exit(1);

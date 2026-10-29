@@ -21,6 +21,10 @@ services:
         generateValue: true
       - key: NEXTAUTH_URL
         sync: false
+      - key: API_BASE_URL
+        sync: false
+      - key: API_INTERNAL_SECRET
+        sync: false
       - key: ALLOWED_EMAIL_DOMAIN
         value: ""
       - key: EMAIL_PROVIDER
@@ -51,3 +55,19 @@ services:
         sync: false
       - key: CHROME_PATH
         value: /usr/bin/chromium
+  - type: web
+    name: be-logbook-api
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npx prisma generate && npm run api:build
+    startCommand: npm run api:start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: API_INTERNAL_SECRET
+        sync: false
+      - key: API_ALLOWED_ORIGINS
+        sync: false

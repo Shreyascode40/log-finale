@@ -11,11 +11,13 @@
 
 # next.js
 /.next/
+/apps/web/.next/
 /out/
 
 # production
 /build
 /apps/api/dist/
+/apps/web/next-env.d.ts
 
 # misc
 .DS_Store

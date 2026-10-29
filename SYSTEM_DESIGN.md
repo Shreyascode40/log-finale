@@ -129,7 +129,7 @@ fan-outs address all active HODs.
 | 20 | Administration | Users, groups, assignments, audit log, gallery, schedule | HOD |
 
 Static content (rules, undertaking text, checklist items, rubric maxima, examiner questions) is
-defined in `lib/constants.ts`; seedable content (schedule, 53 activity rows, 7 review templates and
+defined in `apps/web/lib/constants.ts`; seedable content (schedule, 53 activity rows, 7 review templates and
 questions) lives in `prisma/seed-data/` and is loaded by `prisma/seed.ts`.
 
 ---
@@ -202,19 +202,19 @@ flowchart TB
 
 | Layer | Location | Responsibility |
 |---|---|---|
-| Edge guard | `middleware.ts` | Requires a session for `/student`, `/guide`, `/hod`; redirects cross-role paths to the user’s home |
-| Presentation | `app/**/page.tsx`, `components/**` | Server Components fetch data; client islands handle editing, autosave and the viewer |
-| Transport | `lib/actions/*.ts`, route handlers | Resolve the session, call a service, convert errors to `{ success, error }` or HTTP status |
-| Application/domain | `lib/services/*.ts`, `lib/permissions.ts`, `lib/completion/*`, `lib/validation/*` | Permission checks, workflow state guards, invariants, transactions, audit, notifications |
-| Data access | `lib/prisma.ts`, `prisma/schema.prisma` | Typed database access and schema |
-| Infrastructure adapters | `lib/upload.ts`, `lib/email.ts`, `lib/services/pdf.ts` | Storage, email, Puppeteer |
+| Edge guard | `apps/web/middleware.ts` | Requires a session for `/student`, `/guide`, `/hod`; redirects cross-role paths to the user’s home |
+| Presentation | `apps/web/app/**/page.tsx`, `apps/web/components/**` | Server Components fetch data; client islands handle editing, autosave and the viewer |
+| Transport | `apps/web/lib/actions/*.ts`, route handlers | Resolve the session, call a service, convert errors to `{ success, error }` or HTTP status |
+| Application/domain | `apps/web/lib/services/*.ts`, `apps/web/lib/permissions.ts`, `apps/web/lib/completion/*`, `apps/web/lib/validation/*` | Permission checks, workflow state guards, invariants, transactions, audit, notifications |
+| Data access | `apps/web/lib/prisma.ts`, `prisma/schema.prisma` | Typed database access and schema |
+| Infrastructure adapters | `apps/web/lib/upload.ts`, `apps/web/lib/email.ts`, `apps/web/lib/services/pdf.ts` | Storage, email, Puppeteer |
 
 ### 4.3 Request lifecycle
 
 **Read (page render):**
 
-1. `middleware.ts` verifies the JWT session and the `/student`, `/guide` or `/hod` prefix.
-2. The Server Component calls `requireUser()` or `requireRole(...)` (`lib/permissions.ts`).
+1. `apps/web/middleware.ts` verifies the JWT session and the `/student`, `/guide` or `/hod` prefix.
+2. The Server Component calls `requireUser()` or `requireRole(...)` (`apps/web/lib/permissions.ts`).
 3. The page resolves the user’s group/membership (or the assigned group for a guide).
 4. It calls domain services, which also check `canViewGroup` and materialise missing rows if needed
    (for example activity entries, review forms or mark-sheet rows).
@@ -242,8 +242,8 @@ PDF download, media files).
 | **Server Components + Server Actions** | Keeps permission checks and data access on the server; less client code | Pages are dynamic; no separate public API needed |
 | **Service layer between actions and Prisma** | Same business rules serve pages, actions and tests | Actions stay thin; tests call services directly |
 | **PostgreSQL + Prisma** | Reliable transactions, managed hosting, typed access | Requires a database service; Prisma migrations in deployment |
-| **Enum-like values as `String`** | Portable to SQLite; avoids migration churn | Validation in `lib/constants.ts` + Zod, not DB enums |
-| **JSON stored as text** | Portable and easy to evolve | Must use `lib/json.ts`; no DB-level JSON queries |
+| **Enum-like values as `String`** | Portable to SQLite; avoids migration churn | Validation in `apps/web/lib/constants.ts` + Zod, not DB enums |
+| **JSON stored as text** | Portable and easy to evolve | Must use `apps/web/lib/json.ts`; no DB-level JSON queries |
 | **JWT sessions** | Simple credential auth, no session table | Revocation is limited to token expiry (see §13) |
 | **Same Sheet components for screen and PDF** | Guarantees visual parity | Print route must be renderable server-side and must re-check access |
 | **Synchronous Puppeteer render** | Few exports; simple operational model | PDF request occupies the web process for seconds |
@@ -474,9 +474,9 @@ readability; they attach directly to `User`.
 | Concern | Convention |
 |---|---|
 | Primary keys | `cuid()` strings |
-| Timestamps | `DateTime`; rendered through `lib/format.ts` as `Signed by <name> on <date time>` |
-| Enum-like fields | `String`, values declared in `lib/constants.ts` and validated by Zod |
-| Structured data | JSON text (`components`, `answers`, `items`, `ratings`, audit `before`/`after`, activity history) read/written only through `lib/json.ts` |
+| Timestamps | `DateTime`; rendered through `apps/web/lib/format.ts` as `Signed by <name> on <date time>` |
+| Enum-like fields | `String`, values declared in `apps/web/lib/constants.ts` and validated by Zod |
+| Structured data | JSON text (`components`, `answers`, `items`, `ratings`, audit `before`/`after`, activity history) read/written only through `apps/web/lib/json.ts` |
 | Deletes | Group-owned records cascade from `Group`; users are referenced by optional relations |
 | File URLs | Relative `/media/...` for local storage, absolute Supabase public URL in production |
 | Session | JWT carrying `user.id` and `user.role`; no server session table |
@@ -504,7 +504,7 @@ readability; they attach directly to `User`.
 
 ### 6.2 HOD administration
 
-`lib/services/admin.ts` provides:
+`apps/web/lib/services/admin.ts` provides:
 
 - create/update/deactivate guide accounts (HOD-created, `createdVia = HOD_CREATED`);
 - approve a `SUBMITTED` group **and** assign its guide in one transaction → `ACTIVE`;
@@ -519,7 +519,7 @@ guide, percent, missing sections, approval queue and PDF toggle.
 
 ### 6.3 Group formation
 
-`lib/services/group.ts`:
+`apps/web/lib/services/group.ts`:
 
 - create group (creator becomes member 1, `DRAFT`, shareable code);
 - invite by email or roll number (target must be a registered student, not already grouped, group
@@ -572,7 +572,7 @@ with a mandatory reason, returning it to `DRAFT`.
 
 ### 6.9 Mock and final evaluation
 
-Both tables share a generic core (`lib/services/evaluation.ts`) parameterised by kind:
+Both tables share a generic core (`apps/web/lib/services/evaluation.ts`) parameterised by kind:
 
 | Kind | Components | Total |
 |---|---|---|
@@ -857,7 +857,7 @@ Legend: **W** = write, **R** = read-only, **A** = approve only, **—** = no acc
 | 7. Completion gate | Server recomputation at PDF time | Stale or forged “100%” UI state |
 | 8. UI | Hide/disable controls | Accidental misuse only (never relied on for security) |
 
-Key helpers in `lib/permissions.ts`:
+Key helpers in `apps/web/lib/permissions.ts`:
 
 ```ts
 canViewGroup(user, group)
@@ -912,7 +912,7 @@ type GroupCompletion = {
 };
 ```
 
-Primary entry point: `getGroupCompletion(groupId)` in `lib/completion/index.ts`.
+Primary entry point: `getGroupCompletion(groupId)` in `apps/web/lib/completion/index.ts`.
 Dashboard helpers: `getGuideOverview(guideId)` and `getHodOverview()`.
 
 ### 9.2 Completeness rules
@@ -979,7 +979,7 @@ Every logbook screen is an A4 sheet, not a dashboard card:
 
 ### 10.2 Print route
 
-`app/print/[groupId]/page.tsx` renders the entire logbook in order with `print` mode:
+`apps/web/app/print/[groupId]/page.tsx` renders the entire logbook in order with `print` mode:
 
 1. cover
 2. rules
@@ -1034,7 +1034,7 @@ It calls `requireUser` and `canViewGroup`, so a leaked URL does not expose anoth
 
 ### 11.2 Server actions
 
-All action modules live in `lib/actions/` and return
+All action modules live in `apps/web/lib/actions/` and return
 `{ success: true; data: T } | { success: false; error: string }`.
 
 | Module | Actions |
@@ -1067,7 +1067,7 @@ Naming follows `saveXAction`, `submitXAction`, `approveXAction`, `unlockXAction`
 
 ### 11.4 Contracts, validation and errors
 
-- Validation: one Zod schema per form/module in `lib/validation/*`; services also validate again
+- Validation: one Zod schema per form/module in `apps/web/lib/validation/*`; services also validate again
   before writes, because actions are callable independently.
 - Domain errors: `AppError(code, message)`; actions convert them to user-safe strings; unexpected
   errors are logged and replaced with a generic message.
@@ -1268,7 +1268,7 @@ flowchart LR
 2. Create the Supabase bucket and set `UPLOAD_PROVIDER="supabase"` + keys.
 3. Set `EMAIL_PROVIDER` and credentials; verify the sender domain.
 4. Set `NEXTAUTH_URL` (also used as the PDF render base) and `CHROME_PATH`; if you prefer a separate
-   render URL, wire `PDF_BASE_URL` into `app/api/groups/[groupId]/pdf/route.ts`.
+   render URL, wire `PDF_BASE_URL` into `apps/web/app/api/groups/[groupId]/pdf/route.ts`.
 5. Run migrations and seed once (HOD, 3 guides, 8 students, 2 groups, schedule, activity/review
    templates).
 6. Back up database and object storage; monitor disk/DB limits.
@@ -1421,17 +1421,17 @@ table whenever a new write path is introduced.
 | Concern | Primary files |
 |---|---|
 | Schema / seed | `prisma/schema.prisma`, `prisma/seed.ts`, `prisma/seed-data/*` |
-| Auth | `lib/auth.ts`, `lib/services/auth.ts`, `lib/tokens.ts`, `lib/password.ts`, `lib/rate-limit.ts` |
-| Permissions | `lib/permissions.ts`, `lib/roles.ts`, `middleware.ts` |
-| Group / admin | `lib/services/group.ts`, `lib/services/admin.ts`, `lib/services/group-info.ts`, `lib/services/signoff.ts` |
-| Topics / activity | `lib/services/topic.ts`, `lib/services/activity-chart.ts` |
-| Reviews / marks | `lib/services/review.ts`, `lib/services/evaluation.ts`, `lib/services/mock.ts`, `lib/services/final.ts`, `lib/services/examiner.ts` |
-| Records / sponsored | `lib/services/records.ts`, `lib/services/sponsored.ts`, `lib/services/gallery.ts` |
-| Completion | `lib/completion/sections.ts`, `lib/completion/index.ts` |
-| PDF | `lib/services/pdf.ts`, `app/print/[groupId]/page.tsx`, `app/api/groups/[groupId]/pdf/route.ts` |
-| Paper UI | `components/paper/*`, `components/viewer/sheet-viewer.tsx`, `app/globals.css` |
-| Notifications | `lib/services/notifications.ts`, `lib/email.ts`, `components/app/notifications-bell.tsx` |
-| Audit / activity | `lib/audit.ts`, `lib/services/activity.ts` |
+| Auth | `apps/web/lib/auth.ts`, `apps/web/lib/services/auth.ts`, `apps/web/lib/tokens.ts`, `apps/web/lib/password.ts`, `apps/web/lib/rate-limit.ts` |
+| Permissions | `apps/web/lib/permissions.ts`, `apps/web/lib/roles.ts`, `apps/web/middleware.ts` |
+| Group / admin | `apps/web/lib/services/group.ts`, `apps/web/lib/services/admin.ts`, `apps/web/lib/services/group-info.ts`, `apps/web/lib/services/signoff.ts` |
+| Topics / activity | `apps/web/lib/services/topic.ts`, `apps/web/lib/services/activity-chart.ts` |
+| Reviews / marks | `apps/web/lib/services/review.ts`, `apps/web/lib/services/evaluation.ts`, `apps/web/lib/services/mock.ts`, `apps/web/lib/services/final.ts`, `apps/web/lib/services/examiner.ts` |
+| Records / sponsored | `apps/web/lib/services/records.ts`, `apps/web/lib/services/sponsored.ts`, `apps/web/lib/services/gallery.ts` |
+| Completion | `apps/web/lib/completion/sections.ts`, `apps/web/lib/completion/index.ts` |
+| PDF | `apps/web/lib/services/pdf.ts`, `apps/web/app/print/[groupId]/page.tsx`, `apps/web/app/api/groups/[groupId]/pdf/route.ts` |
+| Paper UI | `apps/web/components/paper/*`, `apps/web/components/viewer/sheet-viewer.tsx`, `apps/web/app/globals.css` |
+| Notifications | `apps/web/lib/services/notifications.ts`, `apps/web/lib/email.ts`, `apps/web/components/app/notifications-bell.tsx` |
+| Audit / activity | `apps/web/lib/audit.ts`, `apps/web/lib/services/activity.ts` |
 | Deployment | `Dockerfile`, `render.yaml`, `.env.example`, `README.md` |
 
 ---

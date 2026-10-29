@@ -4,6 +4,11 @@ Source: APCOE&R Project Diary, Record No. ACA/D/003B, Revision 00, DoI 01/02/202
 The full specification (Parts A–F) lives in `SPEC.md`. This file carries the two prompt
 blocks the agent must always follow, plus the rules between features.
 
+Frontend source files are under `apps/web/` (for example, `apps/web/lib/` and
+`apps/web/components/`). Backend API source files are under `apps/api/`. Paths in the
+specification that begin with `app/`, `lib/`, or `components/` refer to the frontend under
+`apps/web/`.
+
 ## Environment decision (confirmed)
 
 - Development database is **SQLite** via Prisma (no PostgreSQL/Docker on this machine).

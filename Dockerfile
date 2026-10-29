@@ -25,10 +25,11 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/package.json /app/package-lock.json ./
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
+COPY --from=builder /app/apps/web/.next ./apps/web/.next
+COPY --from=builder /app/apps/web/public ./apps/web/public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/scripts ./scripts
-COPY --from=builder /app/next.config.mjs ./
+COPY --from=builder /app/apps/web/next.config.mjs ./apps/web/next.config.mjs
+COPY --from=builder /app/apps/web/package.json ./apps/web/package.json
 EXPOSE 3000
 CMD ["sh", "-c", "node scripts/migrate-deploy.js && npm start"]

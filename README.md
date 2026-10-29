@@ -21,9 +21,9 @@ UI requirement are in [`AGENTS.md`](./AGENTS.md).
 
 ## Frontend and backend
 
-The repository is being split into separately deployable applications. The existing Next.js
-application at the repository root is the frontend. The independent TypeScript API lives in
-`apps/api`; its health endpoint and Schedule read/update flow are the first API-backed slice.
+The repository contains separately deployable applications. The Next.js frontend lives in
+`apps/web`; the independent TypeScript API lives in `apps/api`. The API health endpoint and
+Schedule read/update flow are the first API-backed slice.
 Schedule persistence and its audit write now run in the API. Other feature services remain in
 the frontend until they are migrated incrementally.
 
@@ -51,9 +51,10 @@ transactions belong in `apps/api`, with Next.js server actions acting as fronten
 ```bash
 npm install
 cp .env.example .env          # then edit the values (Windows: copy .env.example .env)
+npm run db:generate           # generate Prisma client for the shared schema
 npm run db:migrate            # apply migrations (Prisma uses DIRECT_URL when set)
 npm run db:seed               # seed data (added feature by feature)
-npm run dev                   # http://localhost:3000
+npm run dev                   # apps/web at http://localhost:3000
 ```
 
 ### Useful scripts
@@ -107,15 +108,15 @@ Every logbook screen is an A4 sheet that matches the printed page.
 
 | Piece | Location |
 |---|---|
-| A4 sheet wrapper | `components/paper/paper-page.tsx` |
-| Repeated college header (record no., revision, DoI, grey "Project Diary" bar) | `components/paper/college-header.tsx` |
-| Blank-line field (prints as text when read-only/locked) | `components/paper/field.tsx` |
-| E-signature cell ("Signed by <name> on <date time>") | `components/paper/sign-cell.tsx` |
-| Marks cell (editable only by the assigned guide) | `components/paper/marks-cell.tsx` |
-| Tick box | `components/paper/tick-box.tsx` |
-| Table primitives | `components/paper/paper-table.tsx` |
-| Viewer shell (thumbnails, toolbar, zoom, Page Up/Down) | `components/viewer/sheet-viewer.tsx` |
-| Demo (screen + `?print=1`) | `app/demo/paper/page.tsx` |
+| A4 sheet wrapper | `apps/web/components/paper/paper-page.tsx` |
+| Repeated college header (record no., revision, DoI, grey "Project Diary" bar) | `apps/web/components/paper/college-header.tsx` |
+| Blank-line field (prints as text when read-only/locked) | `apps/web/components/paper/field.tsx` |
+| E-signature cell ("Signed by <name> on <date time>") | `apps/web/components/paper/sign-cell.tsx` |
+| Marks cell (editable only by the assigned guide) | `apps/web/components/paper/marks-cell.tsx` |
+| Tick box | `apps/web/components/paper/tick-box.tsx` |
+| Table primitives | `apps/web/components/paper/paper-table.tsx` |
+| Viewer shell (thumbnails, toolbar, zoom, Page Up/Down) | `apps/web/components/viewer/sheet-viewer.tsx` |
+| Demo (screen + `?print=1`) | `apps/web/app/demo/paper/page.tsx` |
 
 The same Sheet components are rendered on screen and in the PDF route (`/print/[groupId]`, F16);
 there is no separate PDF template.
@@ -126,10 +127,10 @@ there is no separate PDF template.
 
 | Piece | Location |
 |---|---|
-| NextAuth options (credentials, JWT sessions) | `lib/auth.ts` |
-| Sign-up / verify / login / reset service | `lib/services/auth.ts` |
-| Route protection + role helpers | `lib/permissions.ts`, `lib/roles.ts`, `middleware.ts` |
-| Rate limiting | `lib/rate-limit.ts` |
+| NextAuth options (credentials, JWT sessions) | `apps/web/lib/auth.ts` |
+| Sign-up / verify / login / reset service | `apps/web/lib/services/auth.ts` |
+| Route protection + role helpers | `apps/web/lib/permissions.ts`, `apps/web/lib/roles.ts`, `apps/web/middleware.ts` |
+| Rate limiting | `apps/web/lib/rate-limit.ts` |
 
 Students self-register at `/signup`; the role is forced to `STUDENT` server-side. Guides and the HOD
 are created by the HOD. Unverified accounts cannot log in.
@@ -138,9 +139,9 @@ are created by the HOD. Unverified accounts cannot log in.
 
 | Piece | Location |
 |---|---|
-| Service (`createGuide`, `updateGuide`, `setUserActive`, `approveGroup`, `rejectGroup`, `assignGuide`) | `lib/services/admin.ts` |
-| Server actions (all HOD-gated) | `lib/actions/admin.ts` |
-| Pages | `app/hod/` (`users`, `groups`, `assignments`, `audit`) |
+| Service (`createGuide`, `updateGuide`, `setUserActive`, `approveGroup`, `rejectGroup`, `assignGuide`) | `apps/web/lib/services/admin.ts` |
+| Server actions (all HOD-gated) | `apps/web/lib/actions/admin.ts` |
+| Pages | `apps/web/app/hod/` (`users`, `groups`, `assignments`, `audit`) |
 
 The HOD creates guide accounts, approves/rejects submitted groups, assigns exactly one guide per
 group, and reviews the audit log. Approving a group and assigning its guide happen together, so the
@@ -154,11 +155,11 @@ group code**, and only the creator can **submit** the group (`DRAFT → SUBMITTE
 
 | Piece | Location |
 |---|---|
-| Service (`createGroup`, `inviteMember`, `acceptInvite`, `declineInvite`, `joinByCode`, `removeMember`, `submitGroup`) | `lib/services/group.ts` |
-| Server actions (all student-gated) | `lib/actions/group.ts` |
-| Zod schemas | `lib/validation/group.ts` |
-| Page + client UI | `app/student/group/page.tsx`, `components/student/group-onboarding.tsx` |
-| Student shell + dashboard | `app/student/layout.tsx`, `app/student/page.tsx`, `components/app/student-nav.tsx` |
+| Service (`createGroup`, `inviteMember`, `acceptInvite`, `declineInvite`, `joinByCode`, `removeMember`, `submitGroup`) | `apps/web/lib/services/group.ts` |
+| Server actions (all student-gated) | `apps/web/lib/actions/group.ts` |
+| Zod schemas | `apps/web/lib/validation/group.ts` |
+| Page + client UI | `apps/web/app/student/group/page.tsx`, `apps/web/components/student/group-onboarding.tsx` |
+| Student shell + dashboard | `apps/web/app/student/layout.tsx`, `apps/web/app/student/page.tsx`, `apps/web/components/app/student-nav.tsx` |
 
 Server-side invariants (never only in the UI): a student cannot join a second group, the 5th member
 is rejected on every path (invite and code), and only the creator can submit. Every create, invite,
@@ -173,19 +174,19 @@ creator then sees the group as `ACTIVE` with the guide's name.
 ### F5 — Cover sheet and Group Information sheets
 
 Routes: `/student/cover` and `/student/members`. These are the first real logbook pages: A4 sheets
-built from the shared paper components (`components/paper/*`) and rendered inside the viewer shell on
+built from the shared paper components (`apps/web/components/paper/*`) and rendered inside the viewer shell on
 screen, or stacked with `?print=1` for the PDF route later. Group members edit them with **autosave**
 (the "Saved" tick sits in the viewer toolbar, outside the paper); the guide and HOD see them read-only
 in later features.
 
 | Piece | Location |
 |---|---|
-| Service (`updateCover`, `updateMember`, `updateMemberPhoto`, `getStudentGroupInfo`) | `lib/services/group-info.ts` |
-| Server actions (student-gated) | `lib/actions/group-info.ts` |
-| Zod schemas | `lib/validation/group-info.ts` |
-| Local file storage + `/media` serving route | `lib/upload.ts`, `app/media/[...path]/route.ts` |
-| Cover sheet | `app/student/cover/page.tsx`, `components/student/cover-sheet.tsx` |
-| Group Information sheets (Members 1–4 across two sheets) | `app/student/members/page.tsx`, `components/student/members-sheet.tsx` |
+| Service (`updateCover`, `updateMember`, `updateMemberPhoto`, `getStudentGroupInfo`) | `apps/web/lib/services/group-info.ts` |
+| Server actions (student-gated) | `apps/web/lib/actions/group-info.ts` |
+| Zod schemas | `apps/web/lib/validation/group-info.ts` |
+| Local file storage + `/media` serving route | `apps/web/lib/upload.ts`, `apps/web/app/media/[...path]/route.ts` |
+| Cover sheet | `apps/web/app/student/cover/page.tsx`, `apps/web/components/student/cover-sheet.tsx` |
+| Group Information sheets (Members 1–4 across two sheets) | `apps/web/app/student/members/page.tsx`, `apps/web/components/student/members-sheet.tsx` |
 
 Enforced on the server: only a student who belongs to the group may edit (a guide, the HOD, or a
 student from another group is refused); mobile must be 10 digits and email a valid address; roll
@@ -194,7 +195,7 @@ whose status is `PDF_GENERATED` is locked. Every cover, member and photo change 
 row (`COVER_UPDATE`, `MEMBER_UPDATE`, `MEMBER_PHOTO_UPDATE`).
 
 Uploads are written to `var/uploads/` and served through `/media/[...path]` (files added to
-`public/` at runtime are not served by `next start`); production switches the provider to Supabase
+`apps/web/public/` at runtime are not served by `next start`); production switches the provider to Supabase
 Storage via `UPLOAD_PROVIDER="supabase"`.
 
 **Demo flow:** log in as `te2105` → `/student/cover`, fill the department, A.Y., project title, area
@@ -211,10 +212,10 @@ the viewer shell and stack with `?print=1`.
 
 | Piece | Location |
 |---|---|
-| Service (`acknowledgeRules`, `acceptUndertaking`) | `lib/services/signoff.ts` |
-| Server actions (student-gated) | `lib/actions/signoff.ts` |
-| Rules sheet | `app/student/rules/page.tsx`, `components/student/rules-sheet.tsx` |
-| Undertaking sheet | `app/student/undertaking/page.tsx`, `components/student/undertaking-sheet.tsx` |
+| Service (`acknowledgeRules`, `acceptUndertaking`) | `apps/web/lib/services/signoff.ts` |
+| Server actions (student-gated) | `apps/web/lib/actions/signoff.ts` |
+| Rules sheet | `apps/web/app/student/rules/page.tsx`, `apps/web/components/student/rules-sheet.tsx` |
+| Undertaking sheet | `apps/web/app/student/undertaking/page.tsx`, `apps/web/components/student/undertaking-sheet.tsx` |
 
 **One student handles the whole group:** any group member may sign any member's row, so a single
 student can acknowledge and accept for everyone. The target must belong to the caller's own group (a
@@ -237,11 +238,11 @@ by notice."* The sheet stacks with `?print=1`.
 
 | Piece | Location |
 |---|---|
-| Service (`getSchedule`, `updateScheduleItem`) | `lib/services/schedule.ts` |
-| Server action (HOD-gated) | `lib/actions/schedule.ts` |
-| Zod schema | `lib/validation/schedule.ts` |
+| Service (`getSchedule`, `updateScheduleItem`) | `apps/web/lib/services/schedule.ts` |
+| Server action (HOD-gated) | `apps/web/lib/actions/schedule.ts` |
+| Zod schema | `apps/web/lib/validation/schedule.ts` |
 | Seeded rows (B5) | `prisma/seed-data/schedule.ts` |
-| Shared sheet + pages | `components/schedule/schedule-sheet.tsx`, `app/hod/schedule/page.tsx`, `app/guide/schedule/page.tsx`, `app/student/schedule/page.tsx` |
+| Shared sheet + pages | `apps/web/components/schedule/schedule-sheet.tsx`, `apps/web/app/hod/schedule/page.tsx`, `apps/web/app/guide/schedule/page.tsx`, `apps/web/app/student/schedule/page.tsx` |
 
 Only the **HOD** may edit the date cells (the server re-checks the role on every save and writes a
 `SCHEDULE_UPDATE` `AuditLog` row, recording who made the change); guides, students and the print view
@@ -265,11 +266,11 @@ server.
 
 | Piece | Location |
 |---|---|
-| Service (`getTopicSheet`, `saveTopic`, `scoreTopic`, `decideTopic`, queues) | `lib/services/topic.ts` |
-| Server actions | `lib/actions/topic.ts` |
-| Zod schemas | `lib/validation/topic.ts` |
-| Shared sheet (student / guide / HOD modes) | `components/topics/topic-sheet.tsx` |
-| Pages | `app/student/topics`, `app/guide/topics` (+`/[groupId]`), `app/hod/topics` (+`/[groupId]`) |
+| Service (`getTopicSheet`, `saveTopic`, `scoreTopic`, `decideTopic`, queues) | `apps/web/lib/services/topic.ts` |
+| Server actions | `apps/web/lib/actions/topic.ts` |
+| Zod schemas | `apps/web/lib/validation/topic.ts` |
+| Shared sheet (student / guide / HOD modes) | `apps/web/components/topics/topic-sheet.tsx` |
+| Pages | `apps/web/app/student/topics`, `apps/web/app/guide/topics` (+`/[groupId]`), `apps/web/app/hod/topics` (+`/[groupId]`) |
 
 Rules enforced server-side:
 
@@ -298,11 +299,11 @@ every write is re-checked on the server.
 
 | Piece | Location |
 |---|---|
-| Service (`getMonthChart`, `confirmEntry`, `verifyEntry`, queues) | `lib/services/activity-chart.ts` |
-| Server actions | `lib/actions/activity-chart.ts` |
-| Zod schemas | `lib/validation/activity-chart.ts` |
+| Service (`getMonthChart`, `confirmEntry`, `verifyEntry`, queues) | `apps/web/lib/services/activity-chart.ts` |
+| Server actions | `apps/web/lib/actions/activity-chart.ts` |
+| Zod schemas | `apps/web/lib/validation/activity-chart.ts` |
 | Seeded planned activities (B7, 53 rows) | `prisma/seed-data/activity.ts` |
-| Shared sheet + month tabs + pages | `components/activity/activity-chart-sheet.tsx`, `components/activity/month-tabs.tsx`, `app/student/activity/[month]`, `app/guide/activity` (+`/[groupId]/[month]`), `app/hod/activity` (+`/[groupId]/[month]`) |
+| Shared sheet + month tabs + pages | `apps/web/components/activity/activity-chart-sheet.tsx`, `apps/web/components/activity/month-tabs.tsx`, `apps/web/app/student/activity/[month]`, `apps/web/app/guide/activity` (+`/[groupId]/[month]`), `apps/web/app/hod/activity` (+`/[groupId]/[month]`) |
 
 Rules enforced server-side:
 
@@ -328,11 +329,11 @@ mandatory written reason, returning the form to DRAFT. Every transition writes a
 
 | Piece | Location |
 |---|---|
-| Service (sheet, draft, submit, approve, unlock, queues) | `lib/services/review.ts` |
-| Server actions | `lib/actions/review.ts` |
-| Zod schemas | `lib/validation/review.ts` |
+| Service (sheet, draft, submit, approve, unlock, queues) | `apps/web/lib/services/review.ts` |
+| Server actions | `apps/web/lib/actions/review.ts` |
+| Zod schemas | `apps/web/lib/validation/review.ts` |
 | Seeded templates + B8 questions (10/12/17) | `prisma/seed-data/reviews.ts` |
-| Shared sheet + pages | `components/reviews/review-sheet.tsx`, `app/student/reviews` (+`/[reviewType]`), `app/guide/reviews` (+`/[groupId]/[reviewType]`), `app/hod/reviews` (+`/[groupId]/[reviewType]`) |
+| Shared sheet + pages | `apps/web/components/reviews/review-sheet.tsx`, `apps/web/app/student/reviews` (+`/[reviewType]`), `apps/web/app/guide/reviews` (+`/[groupId]/[reviewType]`), `apps/web/app/hod/reviews` (+`/[groupId]/[reviewType]`) |
 
 Rules enforced server-side:
 
@@ -359,10 +360,10 @@ per-row `AuditLog` (`MOCK_SAVE/SUBMIT/APPROVE/UNLOCK`, `EXAMINER_SAVE`).
 
 | Piece | Location |
 |---|---|
-| Services | `lib/services/mock.ts`, `lib/services/examiner.ts` |
-| Server actions | `lib/actions/mock.ts`, `lib/actions/examiner.ts` |
-| Zod schemas + rubric/rating constants | `lib/validation/mock.ts`, `lib/validation/examiner.ts`, `lib/constants.ts` (`MOCK_T1_COMPONENTS`, `EXAMINER_QUESTIONS`) |
-| Shared sheets + pages | `components/evaluation/mock-sheet.tsx`, `components/examiner/examiner-sheet.tsx`, `app/student/{mock,examiner}`, `app/guide/{mock,examiner}` (+`/[groupId]`), `app/hod/{mock,examiner}` (+`/[groupId]`) |
+| Services | `apps/web/lib/services/mock.ts`, `apps/web/lib/services/examiner.ts` |
+| Server actions | `apps/web/lib/actions/mock.ts`, `apps/web/lib/actions/examiner.ts` |
+| Zod schemas + rubric/rating constants | `apps/web/lib/validation/mock.ts`, `apps/web/lib/validation/examiner.ts`, `apps/web/lib/constants.ts` (`MOCK_T1_COMPONENTS`, `EXAMINER_QUESTIONS`) |
+| Shared sheets + pages | `apps/web/components/evaluation/mock-sheet.tsx`, `apps/web/components/examiner/examiner-sheet.tsx`, `apps/web/app/student/{mock,examiner}`, `apps/web/app/guide/{mock,examiner}` (+`/[groupId]`), `apps/web/app/hod/{mock,examiner}` (+`/[groupId]`) |
 
 Rules enforced server-side: only the assigned guide writes cells/feedback; students, other
 guides and the HOD are refused; only drafts edit, only submitted rows approve, only approved rows
@@ -383,11 +384,11 @@ completion; zero competitions flags "Not eligible for final exam" (F15).
 
 | Piece | Location |
 |---|---|
-| Service (CRUD, uploads, checklists, pages, notes, HOD bundle) | `lib/services/records.ts` |
-| Server actions (incl. `FormData` uploads) | `lib/actions/records.ts` |
-| Zod schemas + static items | `lib/validation/records.ts`, `lib/constants.ts` (`CHECKLIST_ITEMS`, `COMPETITION_TYPES`) |
-| Document uploads (PDF/JPG/PNG ≤ 10 MB) | `lib/upload.ts` (`saveDocument`) |
-| Shared sheets + pages | `components/records/*-sheet.tsx`, `app/student/{competitions,papers,checklists,rtm,cost,notes}`, `app/hod/records` (+`/[groupId]`) |
+| Service (CRUD, uploads, checklists, pages, notes, HOD bundle) | `apps/web/lib/services/records.ts` |
+| Server actions (incl. `FormData` uploads) | `apps/web/lib/actions/records.ts` |
+| Zod schemas + static items | `apps/web/lib/validation/records.ts`, `apps/web/lib/constants.ts` (`CHECKLIST_ITEMS`, `COMPETITION_TYPES`) |
+| Document uploads (PDF/JPG/PNG ≤ 10 MB) | `apps/web/lib/upload.ts` (`saveDocument`) |
+| Shared sheets + pages | `apps/web/components/records/*-sheet.tsx`, `apps/web/app/student/{competitions,papers,checklists,rtm,cost,notes}`, `apps/web/app/hod/records` (+`/[groupId]`) |
 
 Rules enforced server-side: only students of the group write (guides/HOD read-only); rows
 outside the group refused; uploads restricted by type and size; everything audits. Unlike
@@ -404,17 +405,17 @@ Reuses the F10/F11 machinery for Term-II: **Review I (Modeling, 13 q)**, **Revie
 (9 q, per-row Date)** — B8 seeded exactly, with term-aware tabs on every detail page. The
 **Final Evaluation table** (B9: Modeling 10, Coding 40, Testing/Understanding/Team/Demo/Docs 10
 each, total 100 server-computed) runs on a shared generic core with the mock table
-(`lib/services/evaluation.ts`; `mock.ts`/`final.ts` are thin kind wrappers, F11 behavior
+(`apps/web/lib/services/evaluation.ts`; `mock.ts`/`final.ts` are thin kind wrappers, F11 behavior
 unchanged). **Examiner Feedback Term-II** reuses the F11 sheet under `[term]` routes with
 Term-I/Term-II tabs.
 
 | Piece | Location |
 |---|---|
 | Schema change (approved): `ReviewScore.date` | `prisma/schema.prisma` + migration `20261009170105_add_review_score_date` |
-| Shared core + kind wrappers | `lib/services/evaluation.ts`, `lib/services/mock.ts`, `lib/services/final.ts` |
-| Validation | `lib/validation/review.ts` (all 7 types + per-row date), `lib/validation/final.ts` |
-| Sheets | `components/reviews/review-sheet.tsx` (Date column), `components/evaluation/eval-sheet.tsx` (was `mock-sheet.tsx`) |
-| Pages | all review details (term tabs), `app/student/final`, `app/guide/final` (+`[groupId]`), `app/hod/final` (+`[groupId]`), examiner `[term]` routes |
+| Shared core + kind wrappers | `apps/web/lib/services/evaluation.ts`, `apps/web/lib/services/mock.ts`, `apps/web/lib/services/final.ts` |
+| Validation | `apps/web/lib/validation/review.ts` (all 7 types + per-row date), `apps/web/lib/validation/final.ts` |
+| Sheets | `apps/web/components/reviews/review-sheet.tsx` (Date column), `apps/web/components/evaluation/eval-sheet.tsx` (was `mock-sheet.tsx`) |
+| Pages | all review details (term tabs), `apps/web/app/student/final`, `apps/web/app/guide/final` (+`[groupId]`), `apps/web/app/hod/final` (+`[groupId]`), examiner `[term]` routes |
 
 **Demo flow:** `guide2@apcoer.edu.in` → `/guide/reviews/.../REVIEW_II_CODING`, fill dates/remarks
 and submit; → `/guide/final/...` enter marks (Coding max 40) and submit; → examiner
@@ -432,9 +433,9 @@ editing a signed row clears every signature. Unsponsored groups see a notice ins
 
 | Piece | Location |
 |---|---|
-| Service + actions + validation | `lib/services/sponsored.ts`, `lib/actions/sponsored.ts`, `lib/validation/sponsored.ts` |
-| Sponsored flag (HOD) | `setGroupSponsored` in `lib/services/admin.ts`, action in `lib/actions/admin.ts`, toggle in `components/admin/groups-manager.tsx` |
-| Sheets + pages | `components/sponsored/meeting-sheet.tsx`, `components/sponsored/feedback-sheet.tsx`, `app/student/sponsored`, `app/guide/sponsored` (+`[groupId]`), `app/hod/sponsored` (+`/[groupId]`) |
+| Service + actions + validation | `apps/web/lib/services/sponsored.ts`, `apps/web/lib/actions/sponsored.ts`, `apps/web/lib/validation/sponsored.ts` |
+| Sponsored flag (HOD) | `setGroupSponsored` in `apps/web/lib/services/admin.ts`, action in `apps/web/lib/actions/admin.ts`, toggle in `apps/web/components/admin/groups-manager.tsx` |
+| Sheets + pages | `apps/web/components/sponsored/meeting-sheet.tsx`, `apps/web/components/sponsored/feedback-sheet.tsx`, `apps/web/app/student/sponsored`, `apps/web/app/guide/sponsored` (+`[groupId]`), `apps/web/app/hod/sponsored` (+`/[groupId]`) |
 
 **Demo flow:** HOD → `/hod/groups` → *Mark sponsored* on a group; student → `/student/sponsored`
 adds a Semester 1 meeting, signs it; guide → `/guide/sponsored` countersigns; student files the
@@ -443,7 +444,7 @@ feedback ratings and seal.
 ### F15 — Completion engine and dashboards
 
 Each section exposes its status (`SectionStatus = { key, label, href, complete, percent }`) and
-the registry in `lib/completion/index.ts` aggregates them into an overall percent, a missing
+the registry in `apps/web/lib/completion/index.ts` aggregates them into an overall percent, a missing
 list and ready-for-PDF. "Complete" follows SPEC.md A5 exactly (cover + guide + full members,
 rules + undertaking from every member, one APPROVED topic, every planned activity row COMPLETE
 and guide-verified counted against all templates, RTM/cost present, all 7 reviews APPROVED,
@@ -452,9 +453,9 @@ ticked, 1+ competition, 1+ paper, sponsored sections only if sponsored).
 
 | Piece | Location |
 |---|---|
-| Section statuses + registry/aggregate | `lib/completion/sections.ts`, `lib/completion/index.ts` (`getGroupCompletion`, `getGuideOverview`, `getHodOverview`) |
-| PDF permission toggle (HOD, refused with the missing list unless complete) | `setPdfPermission` in `lib/services/admin.ts`, action in `lib/actions/admin.ts`, `components/hod/pdf-toggle.tsx` |
-| Dashboards | `app/student/page.tsx` (stepper, pending, eligibility warning, PDF panel), `app/guide/page.tsx` (assigned groups + pending), `app/hod/page.tsx` (all groups + queue + toggles) |
+| Section statuses + registry/aggregate | `apps/web/lib/completion/sections.ts`, `apps/web/lib/completion/index.ts` (`getGroupCompletion`, `getGuideOverview`, `getHodOverview`) |
+| PDF permission toggle (HOD, refused with the missing list unless complete) | `setPdfPermission` in `apps/web/lib/services/admin.ts`, action in `apps/web/lib/actions/admin.ts`, `apps/web/components/hod/pdf-toggle.tsx` |
+| Dashboards | `apps/web/app/student/page.tsx` (stepper, pending, eligibility warning, PDF panel), `apps/web/app/guide/page.tsx` (assigned groups + pending), `apps/web/app/hod/page.tsx` (all groups + queue + toggles) |
 
 **Demo flow:** any dashboard shows its new panels — student `/student` has the stepper and the
 "Not eligible" warning when competitions are missing; guide `/guide` lists what awaits them per
@@ -470,10 +471,10 @@ with the college header repeated on every sheet. There is no separate PDF templa
 
 | Piece | Location |
 |---|---|
-| Print route (all sheets, `print` mode, read-only) | `app/print/[groupId]/page.tsx` |
-| Gate + renderer + persistence | `lib/services/pdf.ts` (`checkPdfGate`, `renderGroupPdf`, `generateGroupPdf`) |
-| Download route (re-checks gate, 403 + missing list otherwise) | `app/api/groups/[groupId]/pdf/route.ts` |
-| Student status + download page | `app/student/pdf/page.tsx` |
+| Print route (all sheets, `print` mode, read-only) | `apps/web/app/print/[groupId]/page.tsx` |
+| Gate + renderer + persistence | `apps/web/lib/services/pdf.ts` (`checkPdfGate`, `renderGroupPdf`, `generateGroupPdf`) |
+| Download route (re-checks gate, 403 + missing list otherwise) | `apps/web/app/api/groups/[groupId]/pdf/route.ts` |
+| Student status + download page | `apps/web/app/student/pdf/page.tsx` |
 
 Gate (master rule 5, re-checked at generation time): the student, the assigned guide or the
 HOD may generate **only if** `pdfPermission` is true **and** every section is complete —
@@ -501,9 +502,9 @@ mark-all-read.
 
 | Piece | Location |
 |---|---|
-| Service (fan-out, triggers, inbox) | `lib/services/notifications.ts` |
-| Inbox actions + bell | `lib/actions/notifications.ts`, `components/app/notifications-bell.tsx` (wired into `AppHeader`) |
-| Email providers | `lib/email.ts` (+ `nodemailer`) |
+| Service (fan-out, triggers, inbox) | `apps/web/lib/services/notifications.ts` |
+| Inbox actions + bell | `apps/web/lib/actions/notifications.ts`, `apps/web/components/app/notifications-bell.tsx` (wired into `AppHeader`) |
+| Email providers | `apps/web/lib/email.ts` (+ `nodemailer`) |
 
 **Tests:** 135 tests across 20 files (`npm test`), covering every permission rule in the
 master prompt (student/other-guide/HOD mark writes refused, approval locks, HOD-only unlocks
@@ -521,34 +522,34 @@ no upload. Reach it from the **Gallery** item in the HOD navigation or directly 
 
 | Piece | Location |
 |---|---|
-| Service (file-only listing, counts, metadata) | `lib/services/gallery.ts` |
-| Gallery screen (filters, grid, lightbox) | `components/gallery/gallery-view.tsx` |
-| Pages | `app/hod/gallery/` (`page.tsx`, `certificates`, `papers`) |
+| Service (file-only listing, counts, metadata) | `apps/web/lib/services/gallery.ts` |
+| Gallery screen (filters, grid, lightbox) | `apps/web/components/gallery/gallery-view.tsx` |
+| Pages | `apps/web/app/hod/gallery/` (`page.tsx`, `certificates`, `papers`) |
 
 ### Recent activity (auto-refreshing)
 
 Every dashboard (`/student`, `/guide`, `/hod`) shows a **Recent activity** panel sourced from the
 `AuditLog`. The server renders the first page and the browser then **polls every 10 seconds** (and on
 window focus) so it stays current without a reload; the **Live / Paused** pill toggles the polling.
-The feed is **role-scoped on the server** (`lib/services/activity.ts`): a student sees events about
+The feed is **role-scoped on the server** (`apps/web/lib/services/activity.ts`): a student sees events about
 their own group, a guide sees the groups assigned to them, and the HOD sees everything — plus each
 actor's own actions and schedule changes, which concern everyone.
 
 | Piece | Location |
 |---|---|
-| Service (`listRecentActivity`, role scoping) | `lib/services/activity.ts` |
-| Server action | `lib/actions/activity.ts` |
-| Auto-refreshing panel | `components/app/recent-activity.tsx` |
+| Service (`listRecentActivity`, role scoping) | `apps/web/lib/services/activity.ts` |
+| Server action | `apps/web/lib/actions/activity.ts` |
+| Auto-refreshing panel | `apps/web/components/app/recent-activity.tsx` |
 
 ### Static assets
 
 | Path | Purpose |
 |---|---|
-| `public/logos/college-crest.webp` | Left logo on every sheet (copied from `logo/SMM-11.webp`) |
-| `public/logos/founder-portrait.webp` | Right portrait logo on every sheet (copied from `logo/ap1-1.webp`) |
-| `public/cover/college-building.webp` | Cover-page college building photo (copied from `logo/college-building.webp`) |
+| `apps/web/public/logos/college-crest.webp` | Left logo on every sheet (copied from `logo/SMM-11.webp`) |
+| `apps/web/public/logos/founder-portrait.webp` | Right portrait logo on every sheet (copied from `logo/ap1-1.webp`) |
+| `apps/web/public/cover/college-building.webp` | Cover-page college building photo (copied from `logo/college-building.webp`) |
 
-The old SVG logo and cover placeholders remain in `public/logos/` and `public/cover/` but are no longer referenced.
+The old SVG logo and cover placeholders remain in `apps/web/public/logos/` and `apps/web/public/cover/` but are no longer referenced.
 
 ## Switching development to PostgreSQL
 
@@ -579,8 +580,8 @@ Notes:
   `smtp` (+ `SMTP_*`) in production with a real `EMAIL_FROM`.
 - Google Fonts fall back to local serif/sans stacks when the network is unavailable;
   the paper look is preserved by the CSS fallbacks.
-- Uploads: Server Actions accept up to 12 MB (`next.config.mjs`), matching the 2 MB
-  photo and 10 MB document limits enforced in `lib/upload.ts`.
+- Uploads: Server Actions accept up to 12 MB (`apps/web/next.config.mjs`), matching the 2 MB
+  photo and 10 MB document limits enforced in `apps/web/lib/upload.ts`.
 - Quality gates before every release: `npm run typecheck`, `npm run lint`, `npm test`
   (requires `.env.test.local`), `npm run build`.
 
