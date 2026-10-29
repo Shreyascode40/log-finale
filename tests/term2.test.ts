@@ -2,14 +2,14 @@ import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import type { Role } from "@/lib/roles";
-import { getReviewSheet, saveReviewDraft, submitReview } from "@/lib/services/review";
+import { getReviewSheet, saveReviewDraft, submitReview } from "../apps/api/src/modules/review";
 import {
   approveFinalSheets,
   getFinalSheet,
   saveFinalSheets,
   submitFinalSheets,
   unlockFinalSheets,
-} from "@/lib/services/final";
+} from "../apps/api/src/modules/evaluation";
 import { getExaminerSheet, saveExaminerFeedback } from "@/lib/services/examiner";
 
 /**

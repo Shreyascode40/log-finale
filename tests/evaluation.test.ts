@@ -8,7 +8,7 @@ import {
   saveMockSheets,
   submitMockSheets,
   unlockMockSheets,
-} from "@/lib/services/mock";
+} from "../apps/api/src/modules/evaluation";
 import { getExaminerSheet, saveExaminerFeedback } from "@/lib/services/examiner";
 
 /**

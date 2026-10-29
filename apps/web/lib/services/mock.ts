@@ -1,4 +1,5 @@
-import { AppError } from "@/lib/errors";
+import "server-only";
+
 import {
   approveEvalSheets,
   evalOpen,
@@ -11,6 +12,7 @@ import {
   unlockEvalSheets,
   type EvalActor,
   type EvalRow,
+  type EvalSaveRows,
   type EvalSheet,
 } from "@/lib/services/evaluation";
 import {
@@ -19,14 +21,8 @@ import {
   mockSubmitSchema,
   mockUnlockSchema,
 } from "@/lib/validation/mock";
-import { notifyIfReadyForPdf, onMarksApproved, onMarksUnlocked, onSheetsSubmitted } from "@/lib/services/notifications";
+import { AppError } from "@/lib/errors";
 import type { Role } from "@/lib/roles";
-
-/**
- * Term-I Mock Evaluation mark sheets (F11, B9). Thin wrappers over the shared
- * evaluation core (`lib/services/evaluation.ts`) fixed to MOCK_T1, so the
- * F11 pages, actions and tests keep working unchanged.
- */
 
 export type MockActor = { id: string; role: Role };
 export type MockRow = EvalRow;
@@ -36,19 +32,19 @@ export function mockOpen(groupStatus: string): boolean {
   return evalOpen(groupStatus);
 }
 
-export async function getMockSheet(groupId: string): Promise<MockSheet> {
+export function getMockSheet(groupId: string): Promise<MockSheet> {
   return getEvaluationSheet(groupId, "MOCK_T1");
 }
 
-export async function getStudentMockGroupId(userId: string): Promise<string | null> {
+export function getStudentMockGroupId(userId?: string): Promise<string | null> {
   return getStudentEvalGroupId(userId);
 }
 
-export async function listGuideMockGroups(guideId: string) {
+export function listGuideMockGroups(guideId: string) {
   return listGuideEvalGroups(guideId, "MOCK_T1");
 }
 
-export async function listMockQueue() {
+export function listMockQueue() {
   return listEvalQueue("MOCK_T1");
 }
 
@@ -61,7 +57,7 @@ export async function saveMockSheets(actor: MockActor, input: unknown): Promise<
   if (!parsed.success) {
     throw new AppError("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Invalid input");
   }
-  await saveEvalSheets(toActor(actor), "MOCK_T1", parsed.data);
+  await saveEvalSheets(toActor(actor), "MOCK_T1", parsed.data as EvalSaveRows);
 }
 
 export async function submitMockSheets(actor: MockActor, input: unknown): Promise<void> {
@@ -70,7 +66,6 @@ export async function submitMockSheets(actor: MockActor, input: unknown): Promis
     throw new AppError("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Invalid input");
   }
   await submitEvalSheets(toActor(actor), "MOCK_T1", parsed.data.groupId);
-  await onSheetsSubmitted(parsed.data.groupId, "Mock Evaluation table");
 }
 
 export async function approveMockSheets(actor: MockActor, input: unknown): Promise<void> {
@@ -79,8 +74,6 @@ export async function approveMockSheets(actor: MockActor, input: unknown): Promi
     throw new AppError("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Invalid input");
   }
   await approveEvalSheets(toActor(actor), "MOCK_T1", parsed.data.groupId);
-  await onMarksApproved(parsed.data.groupId, "Mock Evaluation table");
-  await notifyIfReadyForPdf(parsed.data.groupId);
 }
 
 export async function unlockMockSheets(actor: MockActor, input: unknown): Promise<void> {
@@ -89,5 +82,4 @@ export async function unlockMockSheets(actor: MockActor, input: unknown): Promis
     throw new AppError("INVALID_INPUT", parsed.error.issues[0]?.message ?? "Invalid input");
   }
   await unlockEvalSheets(toActor(actor), "MOCK_T1", parsed.data.groupId, parsed.data.reason);
-  await onMarksUnlocked(parsed.data.groupId, "Mock Evaluation table");
 }

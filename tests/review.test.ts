@@ -8,7 +8,7 @@ import {
   saveReviewDraft,
   submitReview,
   unlockReview,
-} from "@/lib/services/review";
+} from "../apps/api/src/modules/review";
 
 /**
  * F10 — Term-I reviews and the marks workflow. Proves the guide-only writes,

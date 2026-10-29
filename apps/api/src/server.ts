@@ -44,6 +44,30 @@ import {
   type ActivityChartActor,
   type ActivityMonth,
 } from "./modules/activity-chart.js";
+import {
+  approveReview,
+  getReviewSheet,
+  getStudentReviewGroupId,
+  listGroupReviewStatuses,
+  listGuideReviewGroups,
+  listReviewQueue,
+  saveReviewDraft,
+  submitReview,
+  unlockReview,
+  type ReviewActor,
+} from "./modules/review.js";
+import {
+  approveEvalSheets,
+  getEvaluationSheet,
+  getStudentEvalGroupId,
+  listEvalQueue,
+  listGuideEvalGroups,
+  saveEvalSheets,
+  submitEvalSheets,
+  unlockEvalSheets,
+  type EvalActor,
+  type EvalKind,
+} from "./modules/evaluation.js";
 
 try {
   loadEnvFile(process.env.API_ENV_FILE ?? ".env");
@@ -340,6 +364,115 @@ async function handleApiRequest(request: IncomingMessage, response: ServerRespon
         sendJson(response, 200, { success: true });
       } else if (method === "POST" && pathname === "/v1/topics/decide") {
         await decideTopic(actor, await readJson(request));
+        sendJson(response, 200, { success: true });
+      } else {
+        sendJson(response, 404, { error: "Not found." });
+      }
+    } catch (error) {
+      if (error instanceof ApiDomainError) {
+        sendJson(response, error.status, { error: error.message, code: error.code });
+        return;
+      }
+      if (error instanceof SyntaxError) {
+        sendJson(response, 400, { error: "Request body must be valid JSON and no larger than 64 KB." });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (pathname.startsWith("/v1/reviews")) {
+    const user = await authenticatedUser(request);
+    if (!user) {
+      sendJson(response, 401, { error: "Authentication required." });
+      return;
+    }
+    const actor: ReviewActor = { id: user.id, role: user.role };
+    const groupStatusMatch = pathname.match(/^\/v1\/reviews\/groups\/([^/]+)\/statuses$/);
+    const sheetMatch = pathname.match(/^\/v1\/reviews\/groups\/([^/]+)\/([^/]+)$/);
+    try {
+      if (method === "GET" && pathname === "/v1/reviews/student-group") {
+        sendJson(response, 200, await getStudentReviewGroupId(actor));
+      } else if (method === "GET" && pathname === "/v1/reviews/guide-groups") {
+        sendJson(response, 200, await listGuideReviewGroups(actor));
+      } else if (method === "GET" && pathname === "/v1/reviews/hod-queue") {
+        sendJson(response, 200, await listReviewQueue(actor));
+      } else if (method === "GET" && groupStatusMatch) {
+        sendJson(response, 200, await listGroupReviewStatuses(actor, decodeURIComponent(groupStatusMatch[1]!)));
+      } else if (method === "GET" && sheetMatch) {
+        sendJson(
+          response,
+          200,
+          await getReviewSheet(actor, decodeURIComponent(sheetMatch[1]!), decodeURIComponent(sheetMatch[2]!)),
+        );
+      } else if (method === "POST" && pathname === "/v1/reviews/draft") {
+        await saveReviewDraft(actor, await readJson(request));
+        sendJson(response, 200, { success: true });
+      } else if (method === "POST" && pathname === "/v1/reviews/submit") {
+        await submitReview(actor, await readJson(request));
+        sendJson(response, 200, { success: true });
+      } else if (method === "POST" && pathname === "/v1/reviews/approve") {
+        await approveReview(actor, await readJson(request));
+        sendJson(response, 200, { success: true });
+      } else if (method === "POST" && pathname === "/v1/reviews/unlock") {
+        await unlockReview(actor, await readJson(request));
+        sendJson(response, 200, { success: true });
+      } else {
+        sendJson(response, 404, { error: "Not found." });
+      }
+    } catch (error) {
+      if (error instanceof ApiDomainError) {
+        sendJson(response, error.status, { error: error.message, code: error.code });
+        return;
+      }
+      if (error instanceof SyntaxError) {
+        sendJson(response, 400, { error: "Request body must be valid JSON and no larger than 64 KB." });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (pathname.startsWith("/v1/evaluation")) {
+    const user = await authenticatedUser(request);
+    if (!user) {
+      sendJson(response, 401, { error: "Authentication required." });
+      return;
+    }
+    const actor: EvalActor = { id: user.id, role: user.role };
+    const guideMatch = pathname.match(/^\/v1\/evaluation\/guide-groups\/([^/]+)$/);
+    const queueMatch = pathname.match(/^\/v1\/evaluation\/hod-queue\/([^/]+)$/);
+    const sheetMatch = pathname.match(/^\/v1\/evaluation\/groups\/([^/]+)\/([^/]+)$/);
+    try {
+      if (method === "GET" && pathname === "/v1/evaluation/student-group") {
+        sendJson(response, 200, await getStudentEvalGroupId(actor));
+      } else if (method === "GET" && guideMatch) {
+        sendJson(response, 200, await listGuideEvalGroups(actor, decodeURIComponent(guideMatch[1]!) as EvalKind));
+      } else if (method === "GET" && queueMatch) {
+        sendJson(response, 200, await listEvalQueue(actor, decodeURIComponent(queueMatch[1]!) as EvalKind));
+      } else if (method === "GET" && sheetMatch) {
+        sendJson(
+          response,
+          200,
+          await getEvaluationSheet(actor, decodeURIComponent(sheetMatch[1]!), decodeURIComponent(sheetMatch[2]!) as EvalKind),
+        );
+      } else if (method === "POST" && pathname === "/v1/evaluation/save") {
+        const body = (await readJson(request)) as { kind: EvalKind };
+        await saveEvalSheets(actor, body.kind, body);
+        sendJson(response, 200, { success: true });
+      } else if (method === "POST" && pathname === "/v1/evaluation/submit") {
+        const body = (await readJson(request)) as { kind: EvalKind };
+        await submitEvalSheets(actor, body.kind, body);
+        sendJson(response, 200, { success: true });
+      } else if (method === "POST" && pathname === "/v1/evaluation/approve") {
+        const body = (await readJson(request)) as { kind: EvalKind };
+        await approveEvalSheets(actor, body.kind, body);
+        sendJson(response, 200, { success: true });
+      } else if (method === "POST" && pathname === "/v1/evaluation/unlock") {
+        const body = (await readJson(request)) as { kind: EvalKind };
+        await unlockEvalSheets(actor, body.kind, body);
         sendJson(response, 200, { success: true });
       } else {
         sendJson(response, 404, { error: "Not found." });
