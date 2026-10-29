@@ -14,6 +14,13 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: "12mb",
     },
+    // Next.js 14 uses this experimental option for Node runtime packages.
+    serverComponentsExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
+    // The compressed browser binaries are loaded dynamically by Sparticuz and
+    // are not discovered by Next's file tracer without this explicit include.
+    outputFileTracingIncludes: {
+      "/api/groups/\\[groupId\\]/pdf": ["../../node_modules/@sparticuz/chromium/bin/**/*"],
+    },
   },
 };
 

@@ -105,7 +105,7 @@ export default async function StudentPdfPage() {
                   })}
                 </span>
                 <Button asChild size="sm" variant="outline">
-                  <Link href={file.fileUrl} target="_blank" rel="noreferrer">
+                  <Link href={`/api/pdf/${file.id}`}>
                     Download
                   </Link>
                 </Button>

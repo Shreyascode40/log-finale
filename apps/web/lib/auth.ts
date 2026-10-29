@@ -24,7 +24,7 @@ export const authOptions: NextAuthOptions = {
 
         // Throttle login attempts per email address (in addition to IP-level
         // limits applied by the host/proxy in production).
-        const limit = rateLimit(
+        const limit = await rateLimit(
           `login:${parsed.data.email}`,
           RATE_LIMITS.login.limit,
           RATE_LIMITS.login.windowMs,

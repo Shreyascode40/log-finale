@@ -19,6 +19,7 @@
     "@radix-ui/react-select": "^2.3.8",
     "@radix-ui/react-separator": "^1.1.16",
     "@radix-ui/react-slot": "^1.4.0",
+    "@sparticuz/chromium": "^153.0.0",
     "@supabase/supabase-js": "^2.117.3",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
@@ -36,6 +37,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.2",

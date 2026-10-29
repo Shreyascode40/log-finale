@@ -17,7 +17,7 @@ UI requirement are in [`AGENTS.md`](./AGENTS.md).
 | Auth | NextAuth (credentials) + bcrypt |
 | Uploads | local disk with `UPLOAD_PROVIDER="local"`, Supabase Storage with `"supabase"` |
 | PDF | Puppeteer (A4), rendering the same Sheet components |
-| Tests | Vitest (unit) and Playwright (E2E / visual, added later) |
+| Tests | Vitest (unit) and Playwright (paper sheet visual regression) |
 
 ## Frontend and backend
 
@@ -66,6 +66,7 @@ npm run dev                   # apps/web at http://localhost:3000
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Vitest unit tests (uses `.env.test.local`) |
+| `npm run test:visual` | Playwright visual checks for screen/print sheet parity (Chromium browser required) |
 | `npm run db:migrate` | `prisma migrate dev` |
 | `npm run db:deploy` | Clear a stale migration lock, then `prisma migrate deploy` |
 | `npm run db:seed` | `tsx prisma/seed.ts` |
@@ -194,9 +195,9 @@ numbers and exam seat numbers are unique within the group; photos must be JPG/PN
 whose status is `PDF_GENERATED` is locked. Every cover, member and photo change writes an `AuditLog`
 row (`COVER_UPDATE`, `MEMBER_UPDATE`, `MEMBER_PHOTO_UPDATE`).
 
-Uploads are written to `var/uploads/` and served through `/media/[...path]` (files added to
-`apps/web/public/` at runtime are not served by `next start`); production switches the provider to Supabase
-Storage via `UPLOAD_PROVIDER="supabase"`.
+Local uploads are written to `var/uploads/` and served through `/media/[...path]`. Production uploads use a
+private Supabase bucket and are streamed through `/api/files/[fileRef]` only after a server-side group access
+check. Existing objects in the legacy public bucket need migration before that bucket is made private.
 
 **Demo flow:** log in as `te2105` → `/student/cover`, fill the department, A.Y., project title, area
 and group number (the guide appears once the HOD has assigned one); then `/student/members` and fill
@@ -478,12 +479,18 @@ with the college header repeated on every sheet. There is no separate PDF templa
 
 Gate (master rule 5, re-checked at generation time): the student, the assigned guide or the
 HOD may generate **only if** `pdfPermission` is true **and** every section is complete —
-otherwise 403 naming the missing sections. Success saves the file under `var/uploads/pdf/`,
-records a `PdfExport` row, audits `PDF_GENERATE` and locks the group at `PDF_GENERATED`.
+otherwise 403 naming the missing sections. Success records a `PdfExport` row, audits
+`PDF_GENERATE` and locks the group at `PDF_GENERATED`. Local development stores files under
+`var/uploads/pdf/`; production uploads them to a separate private Supabase Storage bucket.
+Past PDF downloads go through `/api/pdf/[exportId]`, which checks group access and current PDF
+permission before streaming the file.
 
-Setup: install grabs no browser (`puppeteer-core` only). On this machine Chrome is found
-automatically; elsewhere set `CHROME_PATH` (see `.env.example`). Puppeteer loads the print
-route with the downloader's own session cookies, so the same role checks apply.
+Setup: local Chrome is autodetected on Windows; set `CHROME_PATH` elsewhere if needed. On
+Vercel, `@sparticuz/chromium` supplies the browser. Create a **private** Supabase bucket named
+`logbook-pdfs` (or set `SUPABASE_PDF_BUCKET` to your chosen name), and configure
+`UPLOAD_PROVIDER=supabase`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_PRIVATE_BUCKET`,
+and `SUPABASE_PDF_BUCKET`. Do not make either bucket public. Puppeteer loads the shared
+`/print/[groupId]` route with the requesting user's session cookie.
 
 **Demo flow:** bring any group to 100% (dashboards show the missing list), HOD → *Allow PDF*,
 then `/student/pdf` → *Generate & download PDF* (verified end-to-end: 936 KB A4 file, export
@@ -592,9 +599,10 @@ The Vercel project should deploy `apps/web`; the Render service should deploy th
 ### Vercel frontend
 
 1. Import this GitHub repository as a Vercel project and set **Root Directory** to `apps/web`. Enable **Include source files outside of the Root Directory in the Build Step** because the Prisma schema and npm workspace lockfile live at the repository root. Vercel documents this option in its [monorepo FAQ](https://vercel.com/docs/monorepos/monorepo-faq).
-2. Use the Next.js framework defaults and deploy the `main` branch. The web workspace's `postinstall` generates Prisma Client from the shared schema.
-3. Set these environment variables in Vercel: `DATABASE_URL`, `DIRECT_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `API_BASE_URL`, `API_INTERNAL_SECRET`, `UPLOAD_PROVIDER=supabase`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_BUCKET`, and the selected `EMAIL_*` variables. `API_INTERNAL_SECRET` must exactly match Render.
-4. Local disk is ephemeral on Vercel, so keep uploads on Supabase Storage. PDF generation still uses `puppeteer-core` and expects a Chrome/Chromium executable; the Vercel deployment needs a compatible Chromium setup or PDF generation must move to the Render API before that feature is production-ready.
+2. Use the Next.js framework defaults, select Node.js **22.x (22.17 or newer)**, and deploy the `main` branch. The web workspace's `postinstall` generates Prisma Client from the shared schema.
+3. Set these environment variables in Vercel: `DATABASE_URL`, `DIRECT_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `API_BASE_URL`, `API_INTERNAL_SECRET`, `UPLOAD_PROVIDER=supabase`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_PRIVATE_BUCKET`, `SUPABASE_PDF_BUCKET`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, and the selected `EMAIL_*` variables. `API_INTERNAL_SECRET` must exactly match Render.
+4. Local disk is ephemeral on Vercel, so production uploads use private Supabase buckets. If the legacy `SUPABASE_BUCKET` contains existing public files, run `npm run storage:migrate-private` with production DB and Supabase credentials, verify the migrated files, then make the legacy bucket private. Auth rate limiting uses Upstash Redis REST; production login/signup/reset requests are blocked until both Upstash variables are configured.
+5. PDF generation uses bundled `@sparticuz/chromium` with `puppeteer-core`; generated PDFs go to the separate private PDF bucket and are streamed through the authenticated download route.
 
 ### Render API
 
@@ -603,7 +611,7 @@ The Vercel project should deploy `apps/web`; the Render service should deploy th
 3. Set Vercel `API_BASE_URL` to the Render API URL, such as `https://be-logbook-api.onrender.com`.
 4. Seed the database once from the repository root with `npm run db:seed` after deploying.
 
-The API currently owns the Schedule read/update flow. Other pages and modules still access Prisma from the Next.js app, so this is a split deployment with a partially extracted API, not yet a fully backend-owned data layer. The PDF Chromium requirement also needs work before all app features are ready on Vercel.
+The API currently owns the Schedule read/update flow. Other pages and modules still access Prisma from the Next.js app, so this is a split deployment with a partially extracted API, not yet a fully backend-owned data layer. PDF generation remains in Next.js so it can render the shared Sheet components and enforce the existing gate.
 
 If this Render Blueprint previously managed the frontend service, removing that service from `render.yaml` does not delete it. Render leaves removed Blueprint resources in place; stop or delete the old frontend service in the Render dashboard after the Vercel deployment is verified.
 

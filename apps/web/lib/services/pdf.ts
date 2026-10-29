@@ -1,11 +1,9 @@
 import { existsSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 import puppeteer from "puppeteer-core";
 import { prisma } from "@/lib/prisma";
 import { logAction } from "@/lib/audit";
 import { AppError } from "@/lib/errors";
-import { uploadRoot } from "@/lib/upload";
+import { saveGeneratedPdf } from "@/lib/upload";
 import { canGeneratePdf } from "@/lib/permissions";
 import type { CurrentUser } from "@/lib/permissions";
 import { getGroupCompletion } from "@/lib/completion/index";
@@ -57,7 +55,7 @@ export async function checkPdfGate(actor: PdfActor, groupId: string) {
   return { group, completion };
 }
 
-function resolveChrome(): string {
+async function resolveChrome(): Promise<{ executablePath: string; args: string[] }> {
   const candidates = [
     process.env.CHROME_PATH,
     "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
@@ -65,26 +63,33 @@ function resolveChrome(): string {
   ].filter((candidate): candidate is string => Boolean(candidate));
   for (const candidate of candidates) {
     try {
-      if (existsSync(candidate)) return candidate;
+      if (existsSync(candidate)) return { executablePath: candidate, args: [] };
     } catch {
       // try the next candidate
     }
   }
-  throw new AppError(
-    "PDF_UNAVAILABLE",
-    "No Chrome browser found. Set CHROME_PATH to a Chrome/Chromium executable (see README).",
-  );
+  try {
+    // Vercel's serverless Chromium bundle; local development can still use
+    // CHROME_PATH or a standard Windows Chrome install above.
+    const chromium = (await import("@sparticuz/chromium")).default;
+    return { executablePath: await chromium.executablePath(), args: chromium.args };
+  } catch {
+    throw new AppError(
+      "PDF_UNAVAILABLE",
+      "No Chrome browser found. Configure CHROME_PATH locally or deploy with the bundled serverless Chromium.",
+    );
+  }
 }
 
 export type PdfTransport = { cookie: string; baseUrl: string };
 
 /** Renders /print/[groupId] to A4 PDF bytes with the caller's session. */
 export async function renderGroupPdf(groupId: string, transport: PdfTransport): Promise<Buffer> {
-  const executablePath = resolveChrome();
+  const chrome = await resolveChrome();
   const browser = await puppeteer.launch({
-    executablePath,
+    executablePath: chrome.executablePath,
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+    args: [...chrome.args, "--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
     protocolTimeout: 120000,
   });
   try {
@@ -133,17 +138,16 @@ export async function generateGroupPdf(
   const { group } = await checkPdfGate(actor, groupId);
   const bytes = await renderGroupPdf(groupId, transport);
 
-  const dir = path.join(uploadRoot(), "pdf");
-  await mkdir(dir, { recursive: true });
   const slug = (group.groupNo ?? group.id).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40) || "group";
   const fileName = `${slug}-${Date.now()}.pdf`;
-  await writeFile(path.join(dir, fileName), bytes);
-  const url = `/media/pdf/${fileName}`;
+  const storageRef = await saveGeneratedPdf(fileName, bytes);
 
+  let downloadUrl = "";
   await prisma.$transaction(async (tx) => {
     const saved = await tx.pdfExport.create({
-      data: { groupId, generatedById: actor.id, fileUrl: url },
+      data: { groupId, generatedById: actor.id, fileUrl: storageRef },
     });
+    downloadUrl = `/api/pdf/${saved.id}`;
     await tx.group.update({ where: { id: groupId }, data: { status: "PDF_GENERATED" } });
     await logAction(
       {
@@ -151,11 +155,11 @@ export async function generateGroupPdf(
         action: "PDF_GENERATE",
         entity: "PdfExport",
         entityId: saved.id,
-        after: { url },
+        after: { url: downloadUrl },
       },
       tx,
     );
   });
 
-  return { bytes, fileName, url };
+  return { bytes, fileName, url: downloadUrl };
 }

@@ -20,7 +20,7 @@ function messageOf(error: unknown): string {
 
 export async function signUpAction(input: unknown): Promise<ActionResult<{ verificationUrl?: string }>> {
   const ip = clientIp();
-  const limit = rateLimit(`signup:${ip}`, RATE_LIMITS.signup.limit, RATE_LIMITS.signup.windowMs);
+  const limit = await rateLimit(`signup:${ip}`, RATE_LIMITS.signup.limit, RATE_LIMITS.signup.windowMs);
   if (!limit.ok) {
     return { success: false, error: "Too many sign-up attempts. Please try again later." };
   }
@@ -37,7 +37,7 @@ export async function requestPasswordResetAction(
   input: unknown,
 ): Promise<ActionResult<{ resetUrl?: string }>> {
   const ip = clientIp();
-  const limit = rateLimit(
+  const limit = await rateLimit(
     `reset:${ip}`,
     RATE_LIMITS.passwordReset.limit,
     RATE_LIMITS.passwordReset.windowMs,
@@ -55,6 +55,15 @@ export async function requestPasswordResetAction(
 }
 
 export async function resetPasswordAction(input: unknown): Promise<ActionResult> {
+  const limit = await rateLimit(
+    `reset-complete:${clientIp()}`,
+    RATE_LIMITS.passwordReset.limit,
+    RATE_LIMITS.passwordReset.windowMs,
+  );
+  if (!limit.ok) {
+    return { success: false, error: "Too many requests. Please try again later." };
+  }
+
   try {
     await resetPassword(input);
     return { success: true, data: undefined };
