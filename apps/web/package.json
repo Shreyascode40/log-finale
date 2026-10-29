@@ -3,11 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node ../../scripts/run-web.js dev -p 3000",
-    "build": "node ../../scripts/run-web.js build",
-    "start": "node ../../scripts/run-web.js start -p 3000",
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "postinstall": "prisma generate --schema ../../prisma/schema.prisma"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -44,6 +45,7 @@
     "eslint-config-next": "14.2.5",
     "postcss": "^8",
     "prettier": "^3.9.9",
+    "prisma": "^5.22.0",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
   }

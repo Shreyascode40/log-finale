@@ -1,71 +1,27 @@
-# Render blueprint for the Digital BE Project Log Book (production Docker).
-# Secrets use sync: false so they are entered once in the Render dashboard and
-# never stored in git. NEXTAUTH_SECRET uses generateValue to create one.
+# Render deploys the API workspace only. Keep the service root at the repository
+# root because the npm workspace and shared Prisma schema live there.
 services:
-  - type: web
-    name: be-logbook
-    runtime: docker
-    dockerfilePath: ./Dockerfile
-    plan: free
-    healthCheckPath: /login
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: PORT
-        value: 3000
-      - key: DATABASE_URL
-        sync: false
-      - key: DIRECT_URL
-        sync: false
-      - key: NEXTAUTH_SECRET
-        generateValue: true
-      - key: NEXTAUTH_URL
-        sync: false
-      - key: API_BASE_URL
-        sync: false
-      - key: API_INTERNAL_SECRET
-        sync: false
-      - key: ALLOWED_EMAIL_DOMAIN
-        value: ""
-      - key: EMAIL_PROVIDER
-        sync: false
-      - key: REQUIRE_EMAIL_VERIFICATION
-        value: "true"
-      - key: EMAIL_FROM
-        sync: false
-      - key: RESEND_API_KEY
-        sync: false
-      - key: SMTP_HOST
-        sync: false
-      - key: SMTP_PORT
-        value: 587
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASSWORD
-        sync: false
-      - key: UPLOAD_PROVIDER
-        value: supabase
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
-      - key: SUPABASE_BUCKET
-        value: logbook-uploads
-      - key: PDF_BASE_URL
-        sync: false
-      - key: CHROME_PATH
-        value: /usr/bin/chromium
   - type: web
     name: be-logbook-api
     runtime: node
+    branch: main
     plan: free
     buildCommand: npm ci && npx prisma generate && npm run api:build
     startCommand: npm run api:start
     healthCheckPath: /health
+    buildFilter:
+      paths:
+        - apps/api/**
+        - prisma/**
+        - package.json
+        - package-lock.json
+        - render.yaml
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
         sync: false
       - key: API_INTERNAL_SECRET
         sync: false

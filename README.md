@@ -585,35 +585,27 @@ Notes:
 - Quality gates before every release: `npm run typecheck`, `npm run lint`, `npm test`
   (requires `.env.test.local`), `npm run build`.
 
-## Deploying to Render + Supabase
+## Deploying frontend to Vercel and API to Render
 
-1. **Supabase project.** Create a project at supabase.com, then open Project Settings →
-   Database and copy two connection strings: the **transaction-pooler** one (port `6543`,
-   append `?pgbouncer=true&connection_limit=5&pool_timeout=30`) → `DATABASE_URL`, and the
-   **session-pooler** one (port `5432`) → `DIRECT_URL`.
-2. **Storage bucket.** Storage → New bucket, name it `logbook-uploads` (or your
-   `SUPABASE_BUCKET`), mark it **public**. Copy the project URL → `SUPABASE_URL` and a
-   service-role key (Project Settings → API) → `SUPABASE_SERVICE_ROLE_KEY` (server-side
-   only — it bypasses storage policies, never commit it).
-3. **Render service.** New → Web Service → point at this repo (or `render.yaml`
-   blueprint). Runtime Docker, plan free, health check `/login`. The container start
-   command runs `scripts/migrate-deploy.js` on every deploy: it clears a stale idle
-   Prisma advisory lock left by Supabase's session pooler, then runs
-   `prisma migrate deploy`; `CHROME_PATH=/usr/bin/chromium` is baked into the image.
-4. **Env vars.** Set every var in `render.yaml` in the Render dashboard
-   (`sync: false` ones especially: `DATABASE_URL`, `DIRECT_URL`, `NEXTAUTH_SECRET`
-   or let `generateValue` create it, `SUPABASE_*`, `EMAIL_*`). Set
-   `UPLOAD_PROVIDER="supabase"`.
-5. **Seed once.** After the first deploy, run the seed a single time from a Render
-   Shell (`npm run db:seed`) to create the HOD, guides, students, schedule, activity
-   templates and review questions. Re-running it is idempotent (upserts only).
-6. **Live URLs + redeploy.** Set `NEXTAUTH_URL` and `PDF_BASE_URL` to the live Render
-   URL (e.g. `https://be-logbook.onrender.com`) and redeploy — auth callbacks and the
-   Puppeteer print renderer both depend on it.
-7. **Ephemeral disk.** Render's filesystem resets on redeploy, so files under
-   `var/uploads/` (member photos on `local`, generated PDFs) do not survive. Member
-   photos are safe on Supabase Storage; generated PDFs can be re-created on demand
-   from `/student/pdf`.
+The Vercel project should deploy `apps/web`; the Render service should deploy the API workspace from the repository root. Keep the Render service root at the repository root because the API uses the root npm workspace and shared Prisma schema. `render.yaml` defines the API service only.
+
+### Vercel frontend
+
+1. Import this GitHub repository as a Vercel project and set **Root Directory** to `apps/web`. Enable **Include source files outside of the Root Directory in the Build Step** because the Prisma schema and npm workspace lockfile live at the repository root. Vercel documents this option in its [monorepo FAQ](https://vercel.com/docs/monorepos/monorepo-faq).
+2. Use the Next.js framework defaults and deploy the `main` branch. The web workspace's `postinstall` generates Prisma Client from the shared schema.
+3. Set these environment variables in Vercel: `DATABASE_URL`, `DIRECT_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `API_BASE_URL`, `API_INTERNAL_SECRET`, `UPLOAD_PROVIDER=supabase`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_BUCKET`, and the selected `EMAIL_*` variables. `API_INTERNAL_SECRET` must exactly match Render.
+4. Local disk is ephemeral on Vercel, so keep uploads on Supabase Storage. PDF generation still uses `puppeteer-core` and expects a Chrome/Chromium executable; the Vercel deployment needs a compatible Chromium setup or PDF generation must move to the Render API before that feature is production-ready.
+
+### Render API
+
+1. Connect the same GitHub repository and deploy the `be-logbook-api` service from `render.yaml` on branch `main`. Leave **Root Directory** blank (repository root). The build runs `npm ci`, generates Prisma Client and builds `apps/api`; the service starts with `npm run api:start`. Render keeps files outside a configured root directory unavailable, so setting it to `apps/api` would hide the shared schema and workspace files; see [Render monorepo support](https://render.com/docs/monorepo-support).
+2. Set `DATABASE_URL` and `DIRECT_URL` for the same database used by Vercel, `API_INTERNAL_SECRET` to the same generated value as Vercel, and `API_ALLOWED_ORIGINS` to the Vercel origin if browser requests are added later. The current frontend calls the API server-to-server.
+3. Set Vercel `API_BASE_URL` to the Render API URL, such as `https://be-logbook-api.onrender.com`.
+4. Seed the database once from the repository root with `npm run db:seed` after deploying.
+
+The API currently owns the Schedule read/update flow. Other pages and modules still access Prisma from the Next.js app, so this is a split deployment with a partially extracted API, not yet a fully backend-owned data layer. The PDF Chromium requirement also needs work before all app features are ready on Vercel.
+
+If this Render Blueprint previously managed the frontend service, removing that service from `render.yaml` does not delete it. Render leaves removed Blueprint resources in place; stop or delete the old frontend service in the Render dashboard after the Vercel deployment is verified.
 
 ## Email (Resend)
 
